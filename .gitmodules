@@ -1,0 +1,3 @@
+[submodule "git-hooks"]
+	path = git-hooks
+	url = git@github.com:SiftLogic/git-hooks.git
