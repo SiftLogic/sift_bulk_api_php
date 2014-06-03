@@ -1,0 +1,8 @@
+subscriber_email,subscriber_fname,subscriber_mname,subscriber_lname,subscriber_addr1,subscriber_addr2,subscriber_phone,subscriber_mobile,subscriber_fax,subscriber_city,subscriber_state,subscriber_zip,subscriber_country,subscriber_gender,subscriber_dob,subscriber_signup_ip,subscriber_signup_tstamp,subscriber_signup_url,subscriber_signup_category,subscriber_last_activity_tstamp
+devnull@example.com,Jane,R,Dow,Here,I,555-555-5555,555-555-5555,555-555-5555,Am,FL,33333,USA,f,1/2/1980,8.8.8.8,2011-10-09 12:13:14-5,example.com,Apparel,
+devnull@example.com,Jane,R,Dow,Here,I,555-555-5555,555-555-5555,555-555-5555,Am,FL,33333,USA,f,1/2/1980,8.8.4.4,2011-10-12 14:15:14-7,example.com,Sales,
+blacklisted@example.com,Black,L,Isted,Here,I,555-555-5555,555-555-5555,555-555-5555,Am,FL,33333,USA,f,1/2/1980,76.109.168.197,2011-07-09 18:13:14-1,example.com,Automotive,
+whatnot@example.com,Jane,R,Dow,Here,I,555-555-5555,555-555-5555,555-555-5555,Am,FL,33333,USA,f,1/2/1980,67.215.182.83,2012-09-19 12:18:14+6,example.com,Entertainment::Music,
+notanemail,Jane,R,Dow,Here,I,555-555-5555,555-555-5555,555-555-5555,Am,FL,33333,USA,f,1/2/1980,127.0.0.1,2011-11-09 12:13:14-5,example.com,Amusement,
+verifiedblacklisted@example.com,Jane,R,Dow,Here,I,555-555-5555,555-555-5555,555-555-5555,Am,FL,33333,USA,f,1/2/1980,67.215.182.83,2012-09-19 12:18:14+6,example.com,Entertainment::Music,
+verifiedblacklisted@example.com,DougAA,RRR,TTThomas,Here,I,555-555-5555,555-555-5555,555-555-5555,Am,FL,33333,USA,f,1/2/1980,67.215.182.83,2012-09-19 12:18:14+6,yahoo.com,Entertainment::Music,
