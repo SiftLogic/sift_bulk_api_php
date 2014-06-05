@@ -1,8 +1,8 @@
 #!/usr/bin/env php
 <?php
 /**
- * Demonstrates how the Operations class can be used. It is better to require the Operations.php file
- * your code directly for increased flexibility.
+ * Demonstrates how the Operations class can be used. It is better to require the Operations.php
+ * file in your code directly, for increased flexibility.
  * 1. Uploads the specified file as a multiline type (unless otherwise specified).
  * 2. Polls the server until the results are complete.
  * 3. Downloads the results to the specified location.
@@ -39,7 +39,11 @@ $argv->setHelp("" .
 ->option('port')
     ->describedAs('The port to connect to (default 21)')
 ->option('singleFile')
-    ->describedAs('Whether to run in single file mode (default false)');
+    ->describedAs('Whether to run in single file mode (default false)')
+    ->boolean()
+->option('remove')
+    ->describedAs('Remove the corresponding results file of the uploaded file (defaults to false)')
+    ->boolean();
 
 // Do not run any code while in help mode
 if (!empty($argv['u'])){
@@ -55,11 +59,15 @@ if (!empty($argv['u'])){
   echo($message);
 
   // Download when it is done.
-  list($err, $message) = $operations->download($argv['l']);
+  list($err, $message) = $operations->download($argv['l'], $argv['remove']);
   if (!$err){
     throw new RuntimeException($message);
   }
   echo($message);
+
+  if ($argv['remove'] === TRUE){
+    echo('Also, removed' .$argv['f']. "'s result file from the server.\n");
+  }
 
   // Always close the FTP connection properly once done with it.
   $operations->quit();

@@ -18,7 +18,7 @@ Copyright 2014 SiftLogic LLC
 
 SiftLogic LLC hereby grants to SiftLogic Customers a revocable, non-exclusive, non-transferable, limited license for use of SiftLogic sample code for the sole purpose of integration with the SiftLogic platform.
 
-Please see README.md in folder patched_pemftp for further License details.
+Please see README.md in folder patched_pemftp for 3rd party License details.
 
 Installation
 ============

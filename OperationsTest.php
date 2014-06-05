@@ -32,9 +32,6 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $dir[$this->file] = '';
 
     $this->root = org\bovigo\vfs\vfsStream::setup('root', null, $dir);
-    // $this->root = org\bovigo\vfs\vfsStream::create(array(
-    //   '/' => $dir
-    // ));
   }
 
   private function stubObjectWithOnce($name, $methods)
@@ -279,6 +276,34 @@ class OperationsTest extends PHPUnit_Framework_TestCase
 
   // download
 
+  private function setupDefaultDownload($getIs = TRUE, $lastMessage = FALSE)
+  {
+    $formatted = 'test.zip';
+    $location = '/tmp';
+
+    $init = array(
+      "nlist" => array(
+        'not here',
+        'or here',
+        $formatted,
+        'or or here'
+      ),
+      "get" => $getIs
+    );
+    if ($lastMessage)
+    {
+      $init["last_message"] = 'An Error';
+    }
+
+    $stub = $this->stubObjectWithOnce('Ftp', $init);
+
+    return array(
+      "formatted" => $formatted,
+      "location" => $location,
+      "ftp" => $stub
+    );
+  }
+
   public function testDownloadListError()
   {
     $stub = $this->stubObjectWithOnce('Ftp', array(
@@ -300,55 +325,62 @@ class OperationsTest extends PHPUnit_Framework_TestCase
       array($ftpStub, $this->username, $this->password));
     $operationsStub->expects($this->once())
                    ->method('waitAndDownload')
+                   ->with($operationsStub->pollEvery, 'test.zip', '/tmp', FALSE, '')
                    ->will($this->returnValue(array(FALSE, 'An error')));
+    $operationsStub->uploadFileName = 'test.zip';
 
-    $this->assertEquals($operationsStub->download('', $operationsStub), array(FALSE, 'An error'));
+    $result = $operationsStub->download('/tmp', FALSE, $operationsStub);
+    $this->assertEquals($result, array(FALSE, 'An error'));
   }
 
   public function testDownloadFileCompleteNoDownloadError()
   {
-    $formatted = $this->operations->getDownloadFileName();
-    $location = '/tmp';
+    $result = $this->setupDefaultDownload(FALSE, TRUE);
 
-    $stub = $this->stubObjectWithOnce('Ftp', array(
-      "nlist" => array(
-        'not here',
-        'or here',
-        $formatted,
-        'or or here'
-      ),
-      "get" => FALSE,
-      "last_message" => 'An Error'
-    ));
-    $stub->expects($this->once())
-         ->method('get')
-         ->with("/complete/$formatted", "$location/$formatted");
+    $shouldBe = $result['location'] .'/'. $result['formatted'];
+    $result['ftp']->expects($this->once())
+                  ->method('get')
+                  ->with('/complete/'.$result['formatted'], $shouldBe);
 
-    $this->operations = new Operations($stub, $this->username, $this->password);
+    $this->operations = new Operations($result['ftp'], $this->username, $this->password);
+    $this->operations->uploadFileName = $result['formatted'];
 
     $message = "\nFile Download Error: An Error\n";
-    $this->assertEquals($this->operations->download($location), array(FALSE, $message));
+    $this->assertEquals($this->operations->download($result['location']), array(FALSE, $message));
   }
 
   public function testDownloadFileCompleteAndDownload()
   {
-    $formatted = $this->operations->getDownloadFileName();
-    $location = '/tmp';
+    $result = $this->setupDefaultDownload();
 
-    $stub = $this->stubObjectWithOnce('Ftp', array(
-      "nlist" => array(
-        'not here',
-        'or here',
-        $formatted,
-        'or or here'
-      ),
-      "get" => TRUE
-    ));
+    $this->operations = new Operations($result['ftp'], $this->username, $this->password);
+    $this->operations->uploadFileName = $result['formatted'];
 
-    $this->operations = new Operations($stub, $this->username, $this->password);
+    $message = $result['formatted'] .' downloaded to '. $result['location'] .".\n";
+    $this->assertEquals($this->operations->download($result['location']), array(TRUE, $message));
+  }
 
-    $message = "$formatted downloaded to $location.\n";
-    $this->assertEquals($this->operations->download($location), array(TRUE, $message));
+  public function testDownloadFileCompleteAndDownloadAndRemove()
+  {
+    $result = $this->setupDefaultDownload();
+
+    $this->operations = new Operations($result['ftp'], $this->username, $this->password);
+    $this->operations->uploadFileName = $result['formatted'];
+
+    $operationsStub = $this->getMock('Operations', array('remove', 'getDownloadFileName'),
+      array($result['ftp'], $this->username, $this->password));
+    $operationsStub->expects($this->once())
+                   ->method('remove')
+                   ->will($this->returnValue(array(TRUE, "Successful download.\n")));
+    $operationsStub->expects($this->once())
+                   ->method('getDownloadFileName')
+                   ->will($this->returnValue($result['formatted']));
+
+    $message1 = $result['formatted']. ' downloaded to ' .$result['location']. ".\n";
+    $message2 = "Successful download.\n";
+
+    $result = $operationsStub->download($result['location'], TRUE, $operationsStub);
+    $this->assertEquals($result, array(TRUE, $message1 .$message2));
   }
 
   // waitAndDownload
@@ -385,7 +417,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
          ->method('echoAndSleep')
          ->with("Waiting for results file test.csv ...\n", 1000);
 
-    $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', $stub);
+    $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', FALSE, $stub);
   }
 
   public function testWaitAndDownloadReturnsFalseOnNoReconnect()
@@ -397,7 +429,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $stub->expects($this->never())
          ->method('download');
 
-    $result = $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', $stub);
+    $result = $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', FALSE, $stub);
     $this->assertEquals($result, array(FALSE, "Could not reconnect to the server.\n"));
   }
 
@@ -406,12 +438,48 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $stub = $this->setupWaitAndDownload(FALSE, TRUE);
     $stub->expects($this->once())
          ->method('download')
-         ->with('/tmp')
+         ->with('/tmp', TRUE)
          ->will($this->returnValue(array(TRUE, 'test message')));
 
-    $result = $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', $stub);
+    $result = $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', TRUE, $stub);
     $this->assertEquals($result, array(TRUE, 'test message'));
   }
+
+  // remove
+
+  public function testRemoveUnsuccessful()
+  {
+    $formatted = 'test.zip';// No need for conversion...
+
+    $stub = $this->getMock('Ftp');
+    $stub->expects($this->once())
+       ->method('delete')
+       ->with("/complete/$formatted")
+       ->will($this->returnValue(FALSE));
+
+    $this->operations = new Operations($stub, $this->username, $this->password);
+    $this->operations->uploadFileName = $formatted;
+
+    $result = $this->operations->remove();
+    $this->assertEquals($result, array(FALSE, "Could not remove $formatted from the server.\n"));
+  }
+
+  public function testRemoveSuccessful()
+  {
+    $formatted = 'test.zip';// No need for conversion...
+
+    $stub = $this->getMock('Ftp');
+    $stub->expects($this->once())
+       ->method('delete')
+       ->with("/complete/$formatted")
+       ->will($this->returnValue(TRUE));
+
+    $this->operations = new Operations($stub, $this->username, $this->password);
+    $this->operations->uploadFileName = $formatted;
+
+    $result = $this->operations->remove();
+    $this->assertEquals($result, array(TRUE, ""));
+  } 
 
   // quit
 

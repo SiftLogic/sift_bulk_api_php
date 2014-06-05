@@ -123,11 +123,12 @@ class Operations
    * Polls every pollEvery seconds until the last uploaded file can be downloaded. Then downloads.
    *
    * @param (location) The location to download the file to.
+   * @param (removeAfter) If the results file should be removed after downloading.
    * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    *
    * @return An array [<download succeeded>, <message>].
    */
-  public function download($location, $self = '')
+  public function download($location, $removeAfter = FALSE, $self = '')
   {
     // So that waitAndDownload can be stubbed in the tests
     if(empty($self)){
@@ -148,9 +149,18 @@ class Operations
         return array(FALSE, "\nFile Download Error: $message\n");
       };
 
-      return array(TRUE, "$formatted downloaded to $location.\n");
+      $message = "$formatted downloaded to $location.\n";
+      if (!$removeAfter)
+      {
+        return array(TRUE, $message);
+      }
+
+      $result = $this->remove();
+      $result[1] = $message .$result[1];
+
+      return $result;
     } else {
-      return $self->waitAndDownload($self->pollEvery, $formatted, $location);
+      return $self->waitAndDownload($self->pollEvery, $formatted, $location, $removeAfter);
     }
   }
 
@@ -160,11 +170,12 @@ class Operations
    * @param (time) The time in seconds to sleep for.
    * @param (file) The filename to download. Just need the filename, no path.
    * @param (location) The location to download the file to.
+   * @param (removeAfter) If the results file should be removed after downloading.
    * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    *
    * @return Result of running downloads again.
    */
-  public function waitAndDownload($time, $file, $location, $self = '')
+  public function waitAndDownload($time, $file, $location, $removeAfter = FALSE, $self = '')
   {
     // So that echoAndSleep can be stubbed in the tests
     if(empty($self)){
@@ -179,7 +190,7 @@ class Operations
       return array(FALSE, "Could not reconnect to the server.\n");
     }
 
-    return $self->download($location);
+    return $self->download($location, $removeAfter);
   }
 
   // (so echo and sleep can be stubbed)
@@ -188,6 +199,22 @@ class Operations
     echo($message);
     sleep($time);
   }
+
+  
+  /**
+   * Removes the results file from the server.
+   *
+   * @return An array [<download succeeded>, <message>].
+   */
+  public function remove()
+  {
+    $formatted = $this->getDownloadFileName();
+    if($this->ftp->delete("/complete/$formatted") === FALSE){
+      return array(FALSE, "Could not remove $formatted from the server.\n");
+    }
+    return array(TRUE, "");
+  }
+
 
   /**
    * Closes the FTP connection properly. This should always be called at the end of a program using
