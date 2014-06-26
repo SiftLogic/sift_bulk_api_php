@@ -50,27 +50,27 @@ $argv->setHelp("" .
 if (!empty($argv['p'])){
   $operations = new Operations(new FtpOperations(new Ftp(FALSE)), $argv['u'], $argv['p'], 
                                $argv['host'], $argv['port'], $argv['poll'], $argv['protocol']);
-  // $operations->init();
+  $operations->init();
 
   // Upload the file.
-  // list($err, $message) = $operations->upload($argv['f'], $argv['singleFile']);
-  // if (!$err){
-  //   throw new RuntimeException($message);
-  // }
-  // echo($message);
+  list($err, $message) = $operations->upload($argv['f'], $argv['singleFile']);
+  if (!$err){
+    throw new RuntimeException($message);
+  }
+  echo($message);
 
-  // // Download when it is done.
-  // list($err, $message) = $operations->download($argv['l'], $argv['remove']);
-  // if (!$err){
-  //   throw new RuntimeException($message);
-  // }
-  // echo($message);
+  // Download when it is done.
+  list($err, $message) = $operations->download($argv['l'], $argv['remove']);
+  if (!$err){
+    throw new RuntimeException($message);
+  }
+  echo($message);
 
-  // if ($argv['remove'] === TRUE){
-  //   echo('Also, removed' .$argv['f']. "'s result file from the server.\n");
-  // }
+  if ($argv['remove'] === TRUE){
+    echo('Also, removed ' .$argv['f']. "'s result file from the server.\n");
+  }
 
-  // // Always close the FTP connection properly once done with it.
-  // $operations->quit();
+  // Always close the FTP connection properly once done with it.
+  $operations->quit();
 }
 ?>

@@ -4,7 +4,7 @@ PHP FTP API
 This demonstrates how to connect to the ftp server with PHP. You will need to know your apikey and password which can be found in the UI: API Keys -\> Manage -\> Actions -\> Access Details. Once you have that you can try the main.php file for an upload demo. For example:
 <pre>
   <code>
-    ./main.php -f test.csv -l /tmp -u aUsername -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10
+    ./main.php -f test.csv -l /tmp --u aUsername -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10
   </code>
 </pre>
 The CLI is described in more detail with <code>./main.php --help</code>

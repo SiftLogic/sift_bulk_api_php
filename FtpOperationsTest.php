@@ -52,424 +52,473 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->assertEquals($this->ftpOperations->ftp, $this->ftp);
   }
 
+  public function defaultInit()
+  {
+    return $this->ftpOperations->init($this->username, $this->password, $this->host, $this->port);
+  }
+
+  public function defaultInitAndDebug($beforeCreate = NULL, $toStubReturns = NULL)
+  {
+    $toStub = array(
+      "SetServer" => TRUE,
+      "connect" => TRUE,
+      "login" => TRUE,
+      "SetType" => TRUE,
+      "Passive" => TRUE
+    );
+
+    if ($toStubReturns !== NULL)
+    {
+      $toStub = array_merge($toStub, $toStubReturns);
+    }
+
+    $stub = $this->stubObjectWithOnce('Ftp', $toStub);
+
+    $stub->expects($this->once())
+         ->method('SetServer')
+         ->with($this->host, $this->port);
+    $stub->expects($this->once())
+         ->method('login')
+         ->with($this->username, $this->password);
+    $stub->expects($this->once())
+         ->method('SetType')
+         ->with(FTP_AUTOASCII);
+    $stub->expects($this->once())
+         ->method('Passive')
+         ->with(TRUE);
+
+    if ($beforeCreate !== NULL)
+    {
+      $beforeCreate($stub);
+    }
+
+    $this->ftpOperations = new FtpOperations($stub);
+
+    return $this->defaultInit();
+  }
+
   // init
 
   public function testInitSetServerError() {
     $this->setExpectedException('RuntimeException');
-
-
 
     $this->ftpOperations = new FtpOperations($this->stubObjectWithOnce('Ftp', array(
       "SetServer" => FALSE,
       "quit" => TRUE
     )), $this->username, $this->password, $this->host, $this->port);
 
-    $this->ftpOperations->init($this->username, $this->password, $this->port, $this->host,
-                               $this->polling);
+    $this->defaultInit();
   }
 
-//   public function testInitConnectError() {
-//     $this->setExpectedException('RuntimeException');
+  public function testInitConnectError() {
+    $this->setExpectedException('RuntimeException');
 
-//     $this->operations = new Operations($this->stubObjectWithOnce('Ftp', array(
-//       "SetServer" => TRUE,
-//       "quit" => TRUE,
-//       "connect" => FALSE
-//     )), $this->username, $this->password, $this->host, $this->port);
+    $this->ftpOperations = new FtpOperations($this->stubObjectWithOnce('Ftp', array(
+      "SetServer" => TRUE,
+      "quit" => TRUE,
+      "connect" => FALSE
+    )), $this->username, $this->password, $this->host, $this->port);
 
-//     $this->operations->init();
-//   }
+    $this->defaultInit();
+  }
 
-//   public function testInitLoginError() {
-//     $this->setExpectedException('RuntimeException');
+  public function testInitLoginError() {
+    $this->setExpectedException('RuntimeException');
 
-//     $this->operations = new Operations($this->stubObjectWithOnce('Ftp', array(
-//       "SetServer" => TRUE,
-//       "quit" => TRUE,
-//       "connect" => TRUE,
-//       "login" => FALSE
-//     )), $this->username, $this->password, $this->host, $this->port);
+    $this->ftpOperations = new FtpOperations($this->stubObjectWithOnce('Ftp', array(
+      "SetServer" => TRUE,
+      "quit" => TRUE,
+      "connect" => TRUE,
+      "login" => FALSE
+    )), $this->username, $this->password, $this->host, $this->port);
 
-//     $this->operations->init();
-//   }
+    $this->defaultInit();
+  }
 
-//   public function testInitSetTypeError() {
-//     $this->setExpectedException('RuntimeException');
+  public function testInitSetTypeError() {
+    $this->setExpectedException('RuntimeException');
 
-//     $this->operations = new Operations($this->stubObjectWithOnce('Ftp', array(
-//       "SetServer" => TRUE,
-//       "quit" => TRUE,
-//       "connect" => TRUE,
-//       "login" => TRUE,
-//       "SetType" => FALSE
-//     )), $this->username, $this->password, $this->host, $this->port);
+    $this->ftpOperations = new FtpOperations($this->stubObjectWithOnce('Ftp', array(
+      "SetServer" => TRUE,
+      "quit" => TRUE,
+      "connect" => TRUE,
+      "login" => TRUE,
+      "SetType" => FALSE
+    )), $this->username, $this->password, $this->host, $this->port);
 
-//     $this->operations->init();
-//   }
+    $this->defaultInit();
+  }
 
-//   public function testInitPassiveError() {
-//     $this->setExpectedException('RuntimeException');
+  public function testInitPassiveError() {
+    $this->setExpectedException('RuntimeException');
 
-//     $this->operations = new Operations($this->stubObjectWithOnce('Ftp', array(
-//       "SetServer" => TRUE,
-//       "quit" => TRUE,
-//       "connect" => TRUE,
-//       "login" => TRUE,
-//       "SetType" => TRUE,
-//       "Passive" => FALSE
-//     )), $this->username, $this->password, $this->host, $this->port);
+    $this->ftpOperations = new FtpOperations($this->stubObjectWithOnce('Ftp', array(
+      "SetServer" => TRUE,
+      "quit" => TRUE,
+      "connect" => TRUE,
+      "login" => TRUE,
+      "SetType" => TRUE,
+      "Passive" => FALSE
+    )), $this->username, $this->password, $this->host, $this->port);
 
-//     $this->operations->init();
-//   }
+    $this->defaultInit();
+  }
 
-//   public function testInitSuccess() {
-//     $stub = $this->stubObjectWithOnce('Ftp', array(
-//       "SetServer" => TRUE,
-//       "connect" => TRUE,
-//       "login" => TRUE,
-//       "SetType" => TRUE,
-//       "Passive" => TRUE
-//     ));
+  public function testInitSuccess() {
+    $this->assertEquals($this->defaultInitAndDebug(), TRUE);
 
-//     $stub->expects($this->once())
-//          ->method('SetServer')
-//          ->with($this->host, $this->port);
-//     $stub->expects($this->once())
-//          ->method('login')
-//          ->with($this->username, $this->password);
-//     $stub->expects($this->once())
-//          ->method('SetType')
-//          ->with(FTP_AUTOASCII);
-//     $stub->expects($this->once())
-//          ->method('Passive')
-//          ->with(TRUE);
+    $details = $this->ftpOperations->getConnectionDetails();
+    $this->assertEquals($details['username'], $this->username);
+    $this->assertEquals($details['password'], $this->password);
+    $this->assertEquals($details['host'], $this->host);
+    $this->assertEquals($details['port'], $this->port);
+  }
 
-//     $this->operations = new Operations($stub, $this->username, $this->password, $this->host, 
-//                                        $this->port);
+  // upload
 
-//     $this->assertEquals($this->operations->init(), TRUE);
-//   }
+  public function testUploadNoFileError() 
+  {
+    $this->assertEquals($this->defaultInitAndDebug(), TRUE);
 
-//   // upload
+    $message = "File Upload Error: other.csv does not exist\n";
+    $this->assertEquals($this->ftpOperations->upload('other.csv'), array(FALSE, $message));
+  }
 
-//   public function testUploadNoFileError() 
-//   {
-//     $message = "File Upload Error: other.csv does not exist\n";
-//     $this->assertEquals($this->operations->upload('other.csv'), array(FALSE, $message));
-//   }
+  public function testUploadFileUploadErrorWithMultiFile() 
+  {
+    $this->assertEquals($this->defaultInitAndDebug(function($stub) {
+      $dir = "import_{$this->username}_splitfile_config";
 
-//   public function testUploadFileUploadErrorWithMultiFile() 
-//   {
-//     $dir = "import_{$this->username}_splitfile_config";
+      $stub->expects($this->once())
+           ->method('put')
+           ->with($this->file, "$dir/$this->file");
+    }, array(
+      "put" => FALSE,
+      "last_message" => 'An Error'
+    )), TRUE);
 
-//     $stub = $this->stubObjectWithOnce('Ftp', array(
-//       "put" => FALSE,
-//       "last_message" => 'An Error'
-//     ));
+    $message = "\nFile Upload Error: An Error\n";
+    $this->assertEquals($this->ftpOperations->upload($this->file), array(FALSE, $message));
+  }
 
-//     $stub->expects($this->once())
-//          ->method('put')
-//          ->with($this->file, "$dir/$this->file");
-//     $this->operations = new Operations($stub, $this->username, $this->password);
+  public function testUploadFileUploadErrorWithSingleFile() 
+  {
+    $this->assertEquals($this->defaultInitAndDebug(function($stub) {
+      $dir = "import_{$this->username}_default_config";
 
-//     $message = "\nFile Upload Error: An Error\n";
-//     $this->assertEquals($this->operations->upload($this->file), array(FALSE, $message));
-//   }
+      $stub->expects($this->once())
+           ->method('put')
+           ->with($this->file, "$dir/$this->file");
+    }, array(
+      "put" => FALSE,
+      "last_message" => 'An Error'
+    )), TRUE);
 
-//   public function testUploadFileUploadErrorWithSingleFile() 
-//   {
-//     $dir = "import_{$this->username}_default_config";
+    $message = "\nFile Upload Error: An Error\n";
+    $this->assertEquals($this->ftpOperations->upload($this->file, TRUE), array(FALSE, $message));
+  }
 
-//     $stub = $this->stubObjectWithOnce('Ftp', array(
-//       "put" => FALSE,
-//       "last_message" => 'An Error'
-//     ));
+  public function testUploadFileNameExtractionError() 
+  {
+    $this->assertEquals($this->defaultInitAndDebug(function($stub) {
+      $dir = "import_{$this->username}_splitfile_config";
 
-//     $stub->expects($this->once())
-//          ->method('put')
-//          ->with($this->file, "$dir/$this->file");
-//     $this->operations = new Operations($stub, $this->username, $this->password);
+      $stub->expects($this->once())
+           ->method('put')
+           ->with($this->file, "$dir/$this->file");
+    }, array(
+      "put" => TRUE,
+      "last_message" => 'source_test_data_20140523_0012.csv'
+    )), TRUE);
 
-//     $message = "\nFile Upload Error: An Error\n";
-//     $this->assertEquals($this->operations->upload($this->file, TRUE), array(FALSE, $message));
-//   }
+    $message = "Failed to extract filename from: source_test_data_20140523_0012.csv\n";
+    $this->assertEquals($this->ftpOperations->upload($this->file), array(FALSE, $message));
+  }
 
-//   public function testUploadFileNameExtractionError() 
-//   {
-//     $stub = $this->stubObjectWithOnce('Ftp', array(
-//       "put" => TRUE,
-//       "last_message" => 'source_test_data_20140523_0012.csv'
-//     ));
-//     $this->operations = new Operations($stub, $this->username, $this->password);
+  public function testUploadSuccess() 
+  {
+    $file = '/tmp/test.csv';
+    $lastMessage = array(
+      '226 closing data connection;',
+      'File upload success;',
+      'source_test_data_20140523_0015.csv'
+    );
 
-//     $message = "Failed to extract filename from: source_test_data_20140523_0012.csv\n";
-//     $this->assertEquals($this->operations->upload($this->file), array(FALSE, $message));
-//   }
+    $this->assertEquals($this->defaultInitAndDebug(function($stub) {
+      $dir = "import_{$this->username}_splitfile_config";
 
-//   public function testUploadSuccess() 
-//   {
-//     $file = '/tmp/test.csv';
+      $stub->expects($this->once())
+           ->method('put')
+           ->with($this->file, "$dir/$this->file");
+    }, array(
+      "put" => TRUE,
+      "last_message" => implode(' ', $lastMessage)
+    )), TRUE);
 
-//     $lastMessage = array(
-//       '226 closing data connection;',
-//       'File upload success;',
-//       'source_test_data_20140523_0015.csv'
-//     );
+    $message = "test.csv has been uploaded as {$lastMessage[2]}\n";
+    $this->assertEquals($this->ftpOperations->upload('test.csv'), array(TRUE, $message));
+    $this->assertEquals($this->ftpOperations->uploadFileName, $lastMessage[2]);
+  }
 
-//     $stub = $this->stubObjectWithOnce('Ftp', array(
-//       "put" => TRUE,
-//       "last_message" => implode(' ', $lastMessage)
-//     ));
-//     $this->operations = new Operations($stub, $this->username, $this->password);
+  // getDownloadFileName
 
-//     $message = "test.csv has been uploaded as {$lastMessage[2]}\n";
-//     $this->assertEquals($this->operations->upload('test.csv'), array(TRUE, $message));
-//     $this->assertEquals($this->operations->uploadFileName, $lastMessage[2]);
-//   }
+  public function testGetDownloadFileNameNoModify()
+  {
+    $this->assertEquals($this->defaultInitAndDebug(), TRUE);
 
-//   // getDownloadFileName
+    $this->ftpOperations->uploadFileName = '';
+    $this->assertEquals($this->ftpOperations->getDownloadFileName(), '');
 
-//   public function testGetDownloadFileNameNoModify()
-//   {
-//     $this->operations->uploadFileName = '';
-//     $this->assertEquals($this->operations->getDownloadFileName(), '');
+    $this->ftpOperations->uploadFileName = 'test_test.doc';
+    $this->assertEquals($this->ftpOperations->getDownloadFileName(), 'test_test.doc');
+  }
 
-//     $this->operations->uploadFileName = 'test_test.doc';
-//     $this->assertEquals($this->operations->getDownloadFileName(), 'test_test.doc');
-//   }
+  public function testToDownloadFormatModify()
+  {
+    $this->assertEquals($this->defaultInitAndDebug(), TRUE);
 
-//   public function testToDownloadFormatModify()
-//   {
-//     $this->operations->uploadFileName = 'source_test.doc';
-//     $this->assertEquals($this->operations->getDownloadFileName(), 'archive_test.doc');
+    $this->ftpOperations->uploadFileName = 'source_test.doc';
+    $this->assertEquals($this->ftpOperations->getDownloadFileName(), 'archive_test.doc');
     
-//     $this->operations->uploadFileName = 'source_source_test.csv.csv';
-//     $this->assertEquals($this->operations->getDownloadFileName(), 'archive_source_test.csv.zip');
+    $this->ftpOperations->uploadFileName = 'source_source_test.csv.csv';
+    $this->assertEquals($this->ftpOperations->getDownloadFileName(), 'archive_source_test.csv.zip');
 
-//     $this->operations->uploadFileName = 'source_source_test.txt.txt';
-//     $this->assertEquals($this->operations->getDownloadFileName(), 'archive_source_test.txt.zip');
+    $this->ftpOperations->uploadFileName = 'source_source_test.txt.txt';
+    $this->assertEquals($this->ftpOperations->getDownloadFileName(), 'archive_source_test.txt.zip');
 
-//     $this->operations->uploadFileName = 'source_source_test.csv.txt';
-//     $this->assertEquals($this->operations->getDownloadFileName(), 'archive_source_test.csv.zip');
-//   }
+    $this->ftpOperations->uploadFileName = 'source_source_test.csv.txt';
+    $this->assertEquals($this->ftpOperations->getDownloadFileName(), 'archive_source_test.csv.zip');
+  }
 
-//   // download
+  // download
 
-//   private function setupDefaultDownload($getIs = TRUE, $lastMessage = FALSE)
-//   {
-//     $formatted = 'test.zip';
-//     $location = '/tmp';
+  private function setupDefaultDownload($getIs = TRUE, $lastMessage = FALSE)
+  {
+    $formatted = 'test.zip';
+    $location = '/tmp';
 
-//     $init = array(
-//       "nlist" => array(
-//         'not here',
-//         'or here',
-//         $formatted,
-//         'or or here'
-//       ),
-//       "get" => $getIs
-//     );
-//     if ($lastMessage)
-//     {
-//       $init["last_message"] = 'An Error';
-//     }
+    $init = array(
+      "nlist" => array(
+        'not here',
+        'or here',
+        $formatted,
+        'or or here'
+      ),
+      "get" => $getIs
+    );
+    if ($lastMessage)
+    {
+      $init["last_message"] = 'An Error';
+    }
 
-//     $stub = $this->stubObjectWithOnce('Ftp', $init);
+    $stub = $this->stubObjectWithOnce('Ftp', $init);
 
-//     return array(
-//       "formatted" => $formatted,
-//       "location" => $location,
-//       "ftp" => $stub
-//     );
-//   }
+    return array(
+      "formatted" => $formatted,
+      "location" => $location,
+      "ftp" => $stub
+    );
+  }
 
-//   public function testDownloadListError()
-//   {
-//     $stub = $this->stubObjectWithOnce('Ftp', array(
-//       "nlist" => FALSE
-//     ));
-//     $this->operations = new Operations($stub, $this->username, $this->password);
+  public function testDownloadListError()
+  {
+    $this->assertEquals($this->defaultInitAndDebug(NULL, array(
+      "nlist" => FALSE
+    )), TRUE);
 
-//     $message = "The /complete directory does not exist.\n";
-//     $this->assertEquals($this->operations->download(''), array(FALSE, $message));
-//   }
+    $message = "The /complete directory does not exist.\n";
+    $this->assertEquals($this->ftpOperations->download('', 300), array(FALSE, $message));
+  }
 
-//   public function testDownloadFileNotComplete()
-//   {
-//     $ftpStub = $this->stubObjectWithOnce('Ftp', array(
-//       "nlist" => array('not here')
-//     ));
+  public function testDownloadFileNotComplete()
+  {
+    $ftpStub = $this->stubObjectWithOnce('Ftp', array(
+      "nlist" => array('not here')
+    ));
 
-//     $operationsStub = $this->getMock('Operations', array('waitAndDownload'),
-//       array($ftpStub, $this->username, $this->password));
-//     $operationsStub->expects($this->once())
-//                    ->method('waitAndDownload')
-//                    ->with($operationsStub->pollEvery, 'test.zip', '/tmp', FALSE, '')
-//                    ->will($this->returnValue(array(FALSE, 'An error')));
-//     $operationsStub->uploadFileName = 'test.zip';
+    $operationsStub = $this->getMock('FtpOperations', array('waitAndDownload'),
+      array($ftpStub, $this->username, $this->password));
+    $operationsStub->expects($this->once())
+                   ->method('waitAndDownload')
+                   ->with(300, 'test.zip', '/tmp', FALSE, '')
+                   ->will($this->returnValue(array(FALSE, 'An error')));
+    $operationsStub->uploadFileName = 'test.zip';
 
-//     $result = $operationsStub->download('/tmp', FALSE, $operationsStub);
-//     $this->assertEquals($result, array(FALSE, 'An error'));
-//   }
+    $result = $operationsStub->download('/tmp', 300, FALSE, $operationsStub);
+    $this->assertEquals($result, array(FALSE, 'An error'));
+  }
 
-//   public function testDownloadFileCompleteNoDownloadError()
-//   {
-//     $result = $this->setupDefaultDownload(FALSE, TRUE);
+  public function testDownloadFileCompleteNoDownloadError()
+  {
+    $result = $this->setupDefaultDownload(FALSE, TRUE);
 
-//     $shouldBe = $result['location'] .'/'. $result['formatted'];
-//     $result['ftp']->expects($this->once())
-//                   ->method('get')
-//                   ->with('/complete/'.$result['formatted'], $shouldBe);
+    $shouldBe = $result['location'] .'/'. $result['formatted'];
+    $result['ftp']->expects($this->once())
+                  ->method('get')
+                  ->with('/complete/'.$result['formatted'], $shouldBe);
 
-//     $this->operations = new Operations($result['ftp'], $this->username, $this->password);
-//     $this->operations->uploadFileName = $result['formatted'];
+    $this->operations = new ftpOperations($result['ftp'], $this->username, $this->password);
+    $this->operations->uploadFileName = $result['formatted'];
 
-//     $message = "\nFile Download Error: An Error\n";
-//     $this->assertEquals($this->operations->download($result['location']), array(FALSE, $message));
-//   }
+    $message = "\nFile Download Error: An Error\n";
+    $this->assertEquals($this->operations->download($result['location'], 300),
+                        array(FALSE, $message));
+  }
 
-//   public function testDownloadFileCompleteAndDownload()
-//   {
-//     $result = $this->setupDefaultDownload();
+  public function testDownloadFileCompleteAndDownload()
+  {
+    $result = $this->setupDefaultDownload();
 
-//     $this->operations = new Operations($result['ftp'], $this->username, $this->password);
-//     $this->operations->uploadFileName = $result['formatted'];
+    $this->ftpOperations = new FtpOperations($result['ftp'], $this->username, $this->password);
+    $this->ftpOperations->uploadFileName = $result['formatted'];
 
-//     $message = $result['formatted'] .' downloaded to '. $result['location'] .".\n";
-//     $this->assertEquals($this->operations->download($result['location']), array(TRUE, $message));
-//   }
+    $message = 'Downloaded into ' .$result['location']. "/" .$result['formatted']. ".\n";
+    $this->assertEquals($this->ftpOperations->download($result['location'], 300),
+                        array(TRUE, $message));
+  }
 
-//   public function testDownloadFileCompleteAndDownloadAndRemove()
-//   {
-//     $result = $this->setupDefaultDownload();
+  public function testDownloadFileCompleteAndDownloadAndRemove()
+  {
+    $result = $this->setupDefaultDownload();
 
-//     $this->operations = new Operations($result['ftp'], $this->username, $this->password);
-//     $this->operations->uploadFileName = $result['formatted'];
+    $this->ftpOperations = new FtpOperations($result['ftp'], $this->username, $this->password);
+    $this->ftpOperations->uploadFileName = $result['formatted'];
 
-//     $operationsStub = $this->getMock('Operations', array('remove', 'getDownloadFileName'),
-//       array($result['ftp'], $this->username, $this->password));
-//     $operationsStub->expects($this->once())
-//                    ->method('remove')
-//                    ->will($this->returnValue(array(TRUE, "Successful download.\n")));
-//     $operationsStub->expects($this->once())
-//                    ->method('getDownloadFileName')
-//                    ->will($this->returnValue($result['formatted']));
+    $operationsStub = $this->getMock('FtpOperations', array('remove', 'getDownloadFileName'),
+      array($result['ftp'], $this->username, $this->password));
+    $operationsStub->expects($this->once())
+                   ->method('remove')
+                   ->will($this->returnValue(array(TRUE, "Successful download.\n")));
+    $operationsStub->expects($this->once())
+                   ->method('getDownloadFileName')
+                   ->will($this->returnValue($result['formatted']));
 
-//     $message1 = $result['formatted']. ' downloaded to ' .$result['location']. ".\n";
-//     $message2 = "Successful download.\n";
+    $message1 = 'Downloaded into ' .$result['location']. "/" .$result['formatted']. ".\n";
+    $message2 = "Successful download.\n";
 
-//     $result = $operationsStub->download($result['location'], TRUE, $operationsStub);
-//     $this->assertEquals($result, array(TRUE, $message1 .$message2));
-//   }
+    $result = $operationsStub->download($result['location'], TRUE, $operationsStub);
+    $this->assertEquals($result, array(TRUE, $message1 .$message2));
+  }
 
-//   // waitAndDownload
+  // waitAndDownload
 
-//   private function setupWaitAndDownload($mockDownload = FALSE, $mockInit = FALSE)
-//   {
-//     $ftpStub = $this->stubObjectWithOnce('Ftp', array(
-//       "quit" => TRUE
-//     ));
+  private function setupWaitAndDownload($mockDownload = FALSE, $mockInit = FALSE)
+  {
+    $ftpStub = $this->stubObjectWithOnce('Ftp', array(
+      "quit" => TRUE
+    ));
 
-//     $this->operations = new Operations($ftpStub, $this->username, $this->password);
+    $this->operations = new FtpOperations($ftpStub, $this->username, $this->password);
 
-//     $operationsStub = $this->getMock('Operations', array('echoAndSleep', 'download', 'init'),
-//       array($ftpStub, $this->username, $this->password));
-//     $operationsStub->expects($this->once())
-//                    ->method('echoAndSleep');
-//     if ($mockDownload){
-//       $operationsStub->expects($this->once())
-//                      ->method('download');
-//     }
-//     if ($mockInit){
-//       $operationsStub->expects($this->once())
-//                      ->method('init')
-//                      ->will($this->returnValue(TRUE));
-//     }
+    $operationsStub = $this->getMock('FtpOperations', 
+                                  array('echoAndSleep', 'download', 'init', 'getConnectionDetails'),
+      array($ftpStub, $this->username, $this->password));
+    $operationsStub->expects($this->once())
+                   ->method('echoAndSleep');
 
-//     return $operationsStub;
-//   }
 
-//   public function testWaitAndDownloadPrintsAndSleeps()
-//   {
-//     $stub = $this->setupWaitAndDownload(TRUE, TRUE);
-//     $stub->expects($this->once())
-//          ->method('echoAndSleep')
-//          ->with("Waiting for results file test.csv ...\n", 1000);
+    $operationsStub->expects($this->once())
+                   ->method('getConnectionDetails')
+                   ->will($this->returnValue(array(
+                      "username" => $this->username,
+                      "password" => $this->password,
+                      "host" => $this->host,
+                      "port" => $this->port,
+                    )));
+    if ($mockDownload){
+      $operationsStub->expects($this->once())
+                     ->method('download');
+    }
+    if ($mockInit){
+      $operationsStub->expects($this->once())
+                     ->method('init')
+                     ->will($this->returnValue(TRUE));
+    }
 
-//     $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', FALSE, $stub);
-//   }
+    return $operationsStub;
+  }
 
-//   public function testWaitAndDownloadReturnsFalseOnNoReconnect()
-//   {
-//     $stub = $this->setupWaitAndDownload();
-//     $stub->expects($this->once())
-//          ->method('init')
-//          ->will($this->returnValue(FALSE));
-//     $stub->expects($this->never())
-//          ->method('download');
+  public function testWaitAndDownloadPrintsAndSleeps()
+  {
+    $stub = $this->setupWaitAndDownload(TRUE, TRUE);
+    $stub->expects($this->once())
+         ->method('echoAndSleep')
+         ->with("Waiting for results file test.csv ...\n", 1000);
 
-//     $result = $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', FALSE, $stub);
-//     $this->assertEquals($result, array(FALSE, "Could not reconnect to the server.\n"));
-//   }
+    $this->ftpOperations->waitAndDownload(1000, 'test.csv', '/tmp', FALSE, $stub);
+  }
 
-//   public function testWaitAndDownloadReturnsDownload()
-//   {
-//     $stub = $this->setupWaitAndDownload(FALSE, TRUE);
-//     $stub->expects($this->once())
-//          ->method('download')
-//          ->with('/tmp', TRUE)
-//          ->will($this->returnValue(array(TRUE, 'test message')));
+  public function testWaitAndDownloadReturnsFalseOnNoReconnect()
+  {
+    $stub = $this->setupWaitAndDownload();
+    $stub->expects($this->once())
+         ->method('init')
+         ->will($this->returnValue(FALSE));
+    $stub->expects($this->never())
+         ->method('download');
 
-//     $result = $this->operations->waitAndDownload(1000, 'test.csv', '/tmp', TRUE, $stub);
-//     $this->assertEquals($result, array(TRUE, 'test message'));
-//   }
+    $result = $this->ftpOperations->waitAndDownload(1000, 'test.csv', '/tmp', FALSE, $stub);
+    $this->assertEquals($result, array(FALSE, "Could not reconnect to the server.\n"));
+  }
 
-//   // remove
+  public function testWaitAndDownloadReturnsDownload()
+  {
+    $stub = $this->setupWaitAndDownload(FALSE, TRUE);
+    $stub->expects($this->once())
+         ->method('download')
+         ->with('/tmp', TRUE)
+         ->will($this->returnValue(array(TRUE, 'test message')));
 
-//   public function testRemoveUnsuccessful()
-//   {
-//     $formatted = 'test.zip';// No need for conversion...
+    $result = $this->ftpOperations->waitAndDownload(1000, 'test.csv', '/tmp', TRUE, $stub);
+    $this->assertEquals($result, array(TRUE, 'test message'));
+  }
 
-//     $stub = $this->getMock('Ftp');
-//     $stub->expects($this->once())
-//        ->method('delete')
-//        ->with("/complete/$formatted")
-//        ->will($this->returnValue(FALSE));
+  // remove
 
-//     $this->operations = new Operations($stub, $this->username, $this->password);
-//     $this->operations->uploadFileName = $formatted;
+  public function testRemoveUnsuccessful()
+  {
+    $formatted = 'test.zip';// No need for conversion...
 
-//     $result = $this->operations->remove();
-//     $this->assertEquals($result, array(FALSE, "Could not remove $formatted from the server.\n"));
-//   }
+    $stub = $this->getMock('Ftp');
+    $stub->expects($this->once())
+       ->method('delete')
+       ->with("/complete/$formatted")
+       ->will($this->returnValue(FALSE));
 
-//   public function testRemoveSuccessful()
-//   {
-//     $formatted = 'test.zip';// No need for conversion...
+    $this->ftpOperations = new FtpOperations($stub, $this->username, $this->password);
+    $this->ftpOperations->uploadFileName = $formatted;
 
-//     $stub = $this->getMock('Ftp');
-//     $stub->expects($this->once())
-//        ->method('delete')
-//        ->with("/complete/$formatted")
-//        ->will($this->returnValue(TRUE));
+    $result = $this->ftpOperations->remove();
+    $this->assertEquals($result, array(FALSE, "Could not remove $formatted from the server.\n"));
+  }
 
-//     $this->operations = new Operations($stub, $this->username, $this->password);
-//     $this->operations->uploadFileName = $formatted;
+  public function testRemoveSuccessful()
+  {
+    $formatted = 'test.zip';// No need for conversion...
 
-//     $result = $this->operations->remove();
-//     $this->assertEquals($result, array(TRUE, ""));
-//   } 
+    $stub = $this->getMock('Ftp');
+    $stub->expects($this->once())
+       ->method('delete')
+       ->with("/complete/$formatted")
+       ->will($this->returnValue(TRUE));
 
-//   // quit
+    $this->ftpOperations = new FtpOperations($stub, $this->username, $this->password);
+    $this->ftpOperations->uploadFileName = $formatted;
 
-//   public function testQuit()
-//   {
-//     $stub = $this->stubObjectWithOnce('Ftp', array(
-//       "quit" => TRUE
-//     ));
-//     $this->operations = new Operations($stub, $this->username, $this->password);
+    $result = $this->ftpOperations->remove();
+    $this->assertEquals($result, array(TRUE, ""));
+  } 
 
-//     $this->operations->quit();
-//   } 
+  // quit
+
+  public function testQuit()
+  {
+    $stub = $this->stubObjectWithOnce('Ftp', array(
+      "quit" => TRUE
+    ));
+    $this->ftpOperations = new FtpOperations($stub, $this->username, $this->password);
+
+    $this->ftpOperations->quit();
+  } 
 }
 ?>
