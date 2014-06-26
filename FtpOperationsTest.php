@@ -10,6 +10,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
   private $password;
   private $host;
   private $port;
+  private $ftp;
   private $ftpOperations;
 
   private $root;
@@ -22,12 +23,10 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->host = 'localhost';
     $this->port = 9871;
     $this->polling = 0.1;
-    $this->ftpOperations = new FtpOperations(new Ftp(FALSE));
+    $this->ftp = new Ftp(FALSE);
+    $this->ftpOperations = new FtpOperations($this->ftp);
 
     $this->file = 'test.csv';
-
-    $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
-                                       $this->port, $this->host, $this->polling, 'ftp');
 
     $dir = array();
     $dir[$this->file] = '';
@@ -48,50 +47,26 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     return $stub;
   }
 
-  public function testCorrectVariablesSetOnConstruction() 
+  public function testFtpSetOnConstruction()
   {
-    $details = $this->operations->getConnectionDetails();
-
-    $this->assertEquals($details['username'], $this->username);
-    $this->assertEquals($details['password'], $this->password);
-    $this->assertEquals($details['host'], $this->host);
-    $this->assertEquals($details['port'], $this->port);
-
-    $this->assertEquals($this->operations->protocol, 'ftp');
-    $this->assertEquals($this->operations->ftpOperations, $this->ftpOperations);
-    $this->assertEquals($this->operations->pollEvery, $this->polling);
-  }
-
-  public function testVariablesSetNonDefaultsOnConstruction() {
-    $operations = new Operations($this->ftpOperations, $this->username,$this->password,$this->port);
-    $details = $operations->getConnectionDetails();
-
-    $this->assertEquals($details['host'], 'localhost');
-    $this->assertEquals($operations->protocol, 'http');
-    $this->assertEquals($operations->pollEvery, 300);
-
-    $operations = new Operations($this->ftpOperations,$this->username, $this->password, $this->port,
-                                 '', '');
-    $details = $operations->getConnectionDetails();
-
-    $this->assertEquals($operations->protocol, 'http');
-    $this->assertEquals($details['host'], 'localhost');
-    $this->assertEquals($details['port'], 9871);
-    $this->assertEquals($operations->pollEvery, 300);
+    $this->assertEquals($this->ftpOperations->ftp, $this->ftp);
   }
 
   // init
 
-//   public function testInitSetServerError() {
-//     $this->setExpectedException('RuntimeException');
+  public function testInitSetServerError() {
+    $this->setExpectedException('RuntimeException');
 
-//     $this->operations = new Operations($this->stubObjectWithOnce('Ftp', array(
-//       "SetServer" => FALSE,
-//       "quit" => TRUE
-//     )), $this->username, $this->password, $this->host, $this->port);
 
-//     $this->operations->init();
-//   }
+
+    $this->ftpOperations = new FtpOperations($this->stubObjectWithOnce('Ftp', array(
+      "SetServer" => FALSE,
+      "quit" => TRUE
+    )), $this->username, $this->password, $this->host, $this->port);
+
+    $this->ftpOperations->init($this->username, $this->password, $this->port, $this->host,
+                               $this->polling);
+  }
 
 //   public function testInitConnectError() {
 //     $this->setExpectedException('RuntimeException');

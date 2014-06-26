@@ -1,90 +1,64 @@
 <?php
+require_once 'patched_pemftp/ftp_class.php';
+
 /**
- * Contains all the operations to upload, poll and download files. Unlike the Node.js scripts, this
- * operates synchronously.
+ * Handles all FTP based operations across the system. Unlike the Node.js scripts, this operates 
+ * synchronously.
  */
-class Operations
+class FtpOperations
 {
-  private $username;
-  private $password;
-  private $host;
-  private $port;
-  
-  public $protocol;
-  public $uploadFileName;// Set on upload
-  public $pollEvery;
-  public $ftpOperations;
+  public $ftp;
 
   /**
-   * The constructor adds properties to the object which are used in init.
-   *
-   * @param (ftpOperations) An instance of FtpOperations to use.
-   * @param (username) The username to get into the ftp server.
-   * @param (password) The password to get into the ftp server.
-   * @param (host) The host to connect to. Defaults to localhost.
-   * @param (port) The port to connect to. Defaults to 21.
-   * @param (polling) Number of seconds to poll for. Defaults to 300 (5 minutes) if falsey.
-   * @param (protocol) What protocol to use to transfer data. Defaults to http.
+   * Just stores the ftp object this structure is needed due to testing issues.
    */
-  public function __construct(FtpOperations $ftpOperations, $username, $password, $port,
-                              $host = 'localhost', $pollEvery = 300, $protocol = 'http') 
+  public function __construct(Ftp $ftp) 
   {
-    $this->username = $username;
-    $this->password = $password;
-    $this->host = $host;
-    $this->port = $port;
-    $this->pollEvery = $pollEvery;
-    $this->protocol = $protocol;
-
-    if (empty($this->host)){
-      $this->host = 'localhost';
-    }
-    if (empty($this->pollEvery)){
-      $this->pollEvery = 300;
-    }
-    if (empty($this->protocol)){
-      $this->protocol = 'http';
-    }
-
-    $this->ftpOperations = $ftpOperations;
+    $this->ftp = $ftp;
   }
 
- //  /**
- //   * Initializes the ftp object and logs in. Then goes to passive mode.
- //   *
- //   * @return TRUE if operations could be initialized.
- //   */
- //  public function init()
- //  {
- //    if ($this->ftp->SetServer($this->host, $this->port) === FALSE) {
- //        $this->ftp->quit();
- //        throw new RuntimeException("Could not set the server with $this->host:$this->port.\n");
- //    }
+  /**
+   * Initializes the ftp object and logs in. Then goes to passive mode.
+   *
+   * @return TRUE if operations could be initialized.
+   */
+  public function init($password, $port, $host, $polling)
+  {
+    $this->host = $host;
+    $this->port = $port;
+    // if (empty($this->port)){
+    //   $this->port = 21;
+    // }
 
- //    if ($this->ftp->connect() === FALSE) {
- //      $this->ftp->quit();
- //      throw new RuntimeException("Cannot connect to $this->host:$this->port.\n");
- //    }
+    if ($this->ftp->SetServer($this->host, $this->port) === FALSE) {
+        $this->ftp->quit();
+        throw new RuntimeException("Could not set the server with $this->host:$this->port.\n");
+    }
 
- //    if ($this->ftp->login($this->username, $this->password) === FALSE) {
- //      $this->ftp->quit();
- //      throw new RuntimeException(
- //        "Login failed with username:password $this->username:$this->password.\n"
- //      );
- //    }
+    if ($this->ftp->connect() === FALSE) {
+      $this->ftp->quit();
+      throw new RuntimeException("Cannot connect to $this->host:$this->port.\n");
+    }
 
- //    if ($this->ftp->SetType(FTP_AUTOASCII) === FALSE) {
- //      $this->ftp->quit();
- //      throw new RuntimeException("Could not set type to auto ASCII.\n");
- //    }
+    if ($this->ftp->login($this->username, $this->password) === FALSE) {
+      $this->ftp->quit();
+      throw new RuntimeException(
+        "Login failed with username:password $this->username:$this->password.\n"
+      );
+    }
 
- //    if ($this->ftp->Passive(TRUE) === FALSE) {
- //      $this->ftp->quit();
- //      throw new RuntimeException("Could not change to passive mode.\n");
- //    }
+    if ($this->ftp->SetType(FTP_AUTOASCII) === FALSE) {
+      $this->ftp->quit();
+      throw new RuntimeException("Could not set type to auto ASCII.\n");
+    }
 
- //    return TRUE;
- //  }
+    if ($this->ftp->Passive(TRUE) === FALSE) {
+      $this->ftp->quit();
+      throw new RuntimeException("Could not change to passive mode.\n");
+    }
+
+    return TRUE;
+  }
 
  //  /**
  //   * Changes to the upload directory then uploads the specified file.
@@ -228,39 +202,39 @@ class Operations
  //    $this->ftp->quit();
  //  }
 
-  /**
-   * Returns the connections details. Namely, username, password, host and port.
-   *
-   * @return Associative array of the username, password, host and port.
-   */
-  public function getConnectionDetails() 
-  {
-    return array(
-      "username" => $this->username,
-      "password" => $this->password,
-      "host" => $this->host,
-      "port" => $this->port,
-    );
-  }
+ //  /**
+ //   * Returns the connections details. Namely, username, password, host and port.
+ //   *
+ //   * @return Associative array of the username, password, host and port.
+ //   */
+ //  public function getConnectionDetails() 
+ //  {
+ //    return array(
+ //      "username" => $this->username,
+ //      "password" => $this->password,
+ //      "host" => $this->host,
+ //      "port" => $this->port,
+ //    );
+ //  }
 
-  /**
-   * Retrieves the upload file name and transforms it to the download one. 
-   *
-   * @return The current download name of the current upload.
-   */
-  public function getDownloadFileName()
-  {
-    if (empty($this->uploadFileName)){
-      return $this->uploadFileName;
-    }
+ //  /**
+ //   * Retrieves the upload file name and transforms it to the download one. 
+ //   *
+ //   * @return The current download name of the current upload.
+ //   */
+ //  public function getDownloadFileName()
+ //  {
+ //    if (empty($this->uploadFileName)){
+ //      return $this->uploadFileName;
+ //    }
 
-    $formatted = preg_replace('/source_/', 'archive_', $this->uploadFileName, 1);
+ //    $formatted = preg_replace('/source_/', 'archive_', $this->uploadFileName, 1);
 
-    if (strpos($formatted, '.csv') || strpos($formatted, '.txt')){
-      $formatted = substr($formatted, 0, -4) .'.zip';
-    }
+ //    if (strpos($formatted, '.csv') || strpos($formatted, '.txt')){
+ //      $formatted = substr($formatted, 0, -4) .'.zip';
+ //    }
 
-    return $formatted;
-  }
+ //    return $formatted;
+ //  }
 }
 ?>

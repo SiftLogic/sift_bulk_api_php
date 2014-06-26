@@ -11,7 +11,7 @@ error_reporting(-1);
 
 require_once 'vendor/autoload.php';
 require_once 'Operations.php';
-require_once 'patched_pemftp/ftp_class.php';
+require_once 'FtpOperations.php';
 
 // Define CLI options
 $argv = new Commando\Command();
@@ -27,7 +27,6 @@ $argv->setHelp("" .
     ->require()
     ->describedAs('The location of where the results file should be placed')
 ->option('u')
-    ->require()
     ->describedAs('The username defined in the manage api keys section')
 ->option('p')
     ->require()
@@ -43,33 +42,35 @@ $argv->setHelp("" .
     ->boolean()
 ->option('remove')
     ->describedAs('Remove the corresponding results file of the uploaded file (defaults to false)')
-    ->boolean();
+    ->boolean()
+->option('protocol')
+    ->describedAs('Which type of protocol to use (defaults to http)');
 
 // Do not run any code while in help mode
-if (!empty($argv['u'])){
-  $operations = new Operations(new Ftp(FALSE), $argv['u'], $argv['p'], 
-                               $argv['host'], $argv['port'], $argv['poll']);
-  $operations->init();
+if (!empty($argv['p'])){
+  $operations = new Operations(new FtpOperations(new Ftp(FALSE)), $argv['u'], $argv['p'], 
+                               $argv['host'], $argv['port'], $argv['poll'], $argv['protocol']);
+  // $operations->init();
 
   // Upload the file.
-  list($err, $message) = $operations->upload($argv['f'], $argv['singleFile']);
-  if (!$err){
-    throw new RuntimeException($message);
-  }
-  echo($message);
+  // list($err, $message) = $operations->upload($argv['f'], $argv['singleFile']);
+  // if (!$err){
+  //   throw new RuntimeException($message);
+  // }
+  // echo($message);
 
-  // Download when it is done.
-  list($err, $message) = $operations->download($argv['l'], $argv['remove']);
-  if (!$err){
-    throw new RuntimeException($message);
-  }
-  echo($message);
+  // // Download when it is done.
+  // list($err, $message) = $operations->download($argv['l'], $argv['remove']);
+  // if (!$err){
+  //   throw new RuntimeException($message);
+  // }
+  // echo($message);
 
-  if ($argv['remove'] === TRUE){
-    echo('Also, removed' .$argv['f']. "'s result file from the server.\n");
-  }
+  // if ($argv['remove'] === TRUE){
+  //   echo('Also, removed' .$argv['f']. "'s result file from the server.\n");
+  // }
 
-  // Always close the FTP connection properly once done with it.
-  $operations->quit();
+  // // Always close the FTP connection properly once done with it.
+  // $operations->quit();
 }
 ?>
