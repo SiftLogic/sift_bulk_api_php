@@ -9,6 +9,7 @@ require_once 'HttpOperations.php';
 
 // These will need to be manually reset for each test that uses them.
 $postCalls = [];
+$getCalls = [];
 
 class MockRequest extends \Httpful\Request
 {
@@ -45,12 +46,13 @@ class MockRequest extends \Httpful\Request
     return $this->sendReturn;
   }
 
-  public function defineSendReturn($status, $message, $statusUrl)
+  public function defineSendReturn($status, $message, $statusUrl, $jobName = NULL)
   {
     $this->sendReturn = (object)array("body" => (object)array(
         "status" => $status,
         "msg" => $message,
-        "status_url" => $statusUrl
+        "status_url" => $statusUrl,
+        "job" => $jobName
       )
     );
   }
@@ -58,7 +60,12 @@ class MockRequest extends \Httpful\Request
   public static function post($url, $payload = NULL, $mime = NULL)
   {
     array_push($GLOBALS['postCalls'], [$url]);
+    return new MockRequest();
+  }
 
+    public static function get($url, $payload = NULL, $mime = NULL)
+  {
+    array_push($GLOBALS['getCalls'], [$url]);
     return new MockRequest();
   }
 }
@@ -73,6 +80,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
   protected function setUp() 
   {
     $GLOBALS['postCalls'] = [];
+    $GLOBALS['getCalls'] = [];
 
     $password = '54321';
 
@@ -110,13 +118,14 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
 
   // upload
 
-  public function testUploadCallSuccess()
+  public function testUploadSuccess()
   {
     $request = MockRequest::post($this->httpOperations->baseUrl);
     $this->httpOperations->apikey = '12345';
     $request->defineSendReturn('success', NULL, "http://localhost:80");
 
-    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), [TRUE, '']);
+    $msg = "test.csv was uploaded.\n";
+    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), [TRUE, $msg]);
 
     $this->calledWith($GLOBALS['postCalls'], [[$this->httpOperations->baseUrl]]);
     $this->calledWith($request->addHeaderCalls, [
@@ -131,17 +140,18 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $this->assertEquals($this->httpOperations->statusUrl, "http://localhost:80");
   }
 
-  public function testUploadCallSuccessSingleFile()
+  public function testUploadSuccessSingleFile()
   {
     $request = MockRequest::post($this->httpOperations->baseUrl);
     $request->defineSendReturn('success', NULL, NULL);
 
-    $this->assertEquals($this->httpOperations->upload('test.csv', TRUE, $request), [TRUE, '']);
+    $msg = "test.csv was uploaded.\n";
+    $this->assertEquals($this->httpOperations->upload('test.csv', TRUE, $request), [TRUE, $msg]);
 
     $this->calledWith($request->bodyCalls, [['export_type' => "single"]]);
   }
 
-  public function testUploadCallError()
+  public function testUploadError()
   {
     $request = MockRequest::post($this->httpOperations->baseUrl);
     $request->defineSendReturn('error', 'Err', NULL);
@@ -149,11 +159,107 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), [FALSE, 'Err']);
 
     // No parsable response body
-    $request = MockRequest::post($this->httpOperations->baseUrl);
     $request->sendReturn = (object)array('body' => '<h1>A funky error message</h1>');
 
     $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), 
                         [FALSE, '<h1>A funky error message</h1>']);
+  }
+
+  // watchUpload
+
+  public function testWatchUploadComplete()
+  {
+    $request = MockRequest::get($this->httpOperations->statusUrl);
+    $this->httpOperations->apikey = '12345';
+    $request->defineSendReturn('completed', NULL, NULL);
+
+    $this->assertEquals($this->httpOperations->watchUpload(300, $request), [TRUE, '']);
+
+    $this->calledWith($GLOBALS['getCalls'], [[$this->httpOperations->statusUrl]]);
+    $this->calledWith($request->addHeaderCalls, [
+      ['Accept', 'application/json'],
+      ['x-authorization', $this->httpOperations->apikey]
+    ]);
+    $this->assertEquals(count($request->sendCalls), 1);
+  }
+
+  public function testWatchUploadNotComplete()
+  {
+    $request = MockRequest::get($this->httpOperations->statusUrl);
+    $request->defineSendReturn('active', NULL, NULL, 'a_job');
+
+    $operationsStub = $this->getMock(
+      'HttpOperations', 
+      ['waitAndDownload'],
+      [$this->password, 'localhost', 81]
+    );
+    $operationsStub->expects($this->once())
+                   ->method('waitAndDownload')
+                   ->with(100, 'a_job')
+                   ->will($this->returnValue([TRUE, 'test message2']));
+
+    $this->assertEquals(
+      $this->httpOperations->watchUpload(100, $request, $operationsStub),
+      [TRUE, 'test message2']
+    );
+  }
+
+  public function testWatchUploadError()
+  {
+    $request = MockRequest::get($this->httpOperations->statusUrl);
+    $request->defineSendReturn('error', 'Err', NULL);
+
+    $this->assertEquals($this->httpOperations->watchUpload(100, $request), [FALSE, 'Err']);
+
+    //No parsable response body
+    $request->sendReturn = (object)array('body' => '<h1>A funky error message</h1>');
+
+    $this->assertEquals(
+      $this->httpOperations->watchUpload(100, $request),
+      [FALSE, '<h1>A funky error message</h1>']
+    );
+  }
+
+  // waitAndDownload
+
+  private function setupWaitAndDownload($mockWatchUpload = FALSE)
+  {
+    $operationsStub = $this->getMock(
+      'HttpOperations', 
+      ['echoAndSleep', 'watchUpload'],
+      [$this->password, 'localhost', 81]
+    );
+    $operationsStub->expects($this->once())
+                   ->method('echoAndSleep');
+
+    if ($mockWatchUpload){
+      $operationsStub->expects($this->once())
+                     ->method('watchUpload');
+    }
+
+    return $operationsStub;
+  }
+
+  public function testWaitAndDownloadPrintsAndSleeps()
+  {
+    $stub = $this->setupWaitAndDownload(TRUE);
+    $stub->expects($this->once())
+         ->method('echoAndSleep')
+         ->with("Waiting for results file test.csv ...\n", 1000);
+
+    $this->httpOperations->waitAndDownload(1000, 'test.csv', $stub);
+  }
+
+  public function testWaitAndDownloadReturnsDownload()
+  {
+    $stub = $this->setupWaitAndDownload(FALSE);
+    $stub->expects($this->once())
+         ->method('watchUpload')
+         ->with(1000)
+         ->will($this->returnValue([TRUE, 'test message']));
+
+    $result = $this->httpOperations->waitAndDownload(1000, 'test.csv', $stub);
+    $this->assertEquals($result, [TRUE, 'test message']);
   }
 }
 ?>

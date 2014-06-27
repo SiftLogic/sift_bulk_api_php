@@ -60,11 +60,11 @@ if (!empty($argv['p'])){
   echo($message);
 
   // Download when it is done.
-  // list($err, $message) = $operations->download($argv['l'], $argv['remove']);
-  // if (!$err){
-  //   throw new RuntimeException($message);
-  // }
-  // echo($message);
+  list($err, $message) = $operations->download($argv['l'], $argv['remove']);
+  if (!$err){
+    throw new RuntimeException($message);
+  }
+  echo("done polling" .$message. "\n");
 
   // if ($argv['remove'] === TRUE){
   //   echo('Also, removed ' .$argv['f']. "'s result file from the server.\n");

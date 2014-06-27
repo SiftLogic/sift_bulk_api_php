@@ -55,6 +55,13 @@ class OperationsTest extends PHPUnit_Framework_TestCase
                 ->getMock();
   }
 
+  private function stubHttpOperationsCall()
+  {
+    return $this->getMockBuilder('HttpOperations')
+                ->disableOriginalConstructor()
+                ->getMock();
+  }
+
   public function testCorrectVariablesSetOnConstruction() 
   {
     $details = $this->operations->getConnectionDetails();
@@ -102,6 +109,19 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->assertEquals($this->operations->init(), TRUE);
   }
 
+  public function testInitCallsHttp() {
+    $this->httpOperations = $this->stubHttpOperationsCall();
+    $this->httpOperations->expects($this->once())
+         ->method('init')
+         ->will($this->returnValue(TRUE))
+         ->with($this->password, $this->host, $this->port);
+
+    $this->operations = new Operations($this->httpOperations, $this->username, $this->password,
+                                       $this->port, $this->host, 300, 'http');
+
+    $this->assertEquals($this->operations->init(), TRUE);
+  }
+
   // upload
 
   public function testUploadCallsFtp() {
@@ -112,6 +132,19 @@ class OperationsTest extends PHPUnit_Framework_TestCase
          ->with('test.csv', FALSE);
 
     $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
+                                       $this->port, $this->host);
+
+    $this->assertEquals($this->operations->upload('test.csv', FALSE), TRUE);
+  }
+
+  public function testUploadCallsHttp() {
+    $this->httpOperations = $this->stubHttpOperationsCall();
+    $this->httpOperations->expects($this->once())
+         ->method('upload')
+         ->will($this->returnValue(TRUE))
+         ->with('test.csv', FALSE);
+
+    $this->operations = new Operations($this->httpOperations, $this->username, $this->password,
                                        $this->port, $this->host);
 
     $this->assertEquals($this->operations->upload('test.csv', FALSE), TRUE);
@@ -128,6 +161,19 @@ class OperationsTest extends PHPUnit_Framework_TestCase
 
     $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
                                        $this->port, $this->host, 300, 'ftp');
+
+    $this->assertEquals($this->operations->download('/tmp', FALSE), TRUE);
+  }
+
+    public function testDownloadCallsHttp() {
+    $this->httpOperations = $this->stubHttpOperationsCall();
+    $this->httpOperations->expects($this->once())
+         ->method('download')
+         ->will($this->returnValue(TRUE))
+         ->with('/tmp', 300, FALSE);
+
+    $this->operations = new Operations($this->httpOperations, $this->username, $this->password,
+                                       $this->port, $this->host, 300);
 
     $this->assertEquals($this->operations->download('/tmp', FALSE), TRUE);
   }

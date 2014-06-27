@@ -113,7 +113,14 @@ class Operations
    */
   public function download($location, $removeAfter)
   {
-    return $this->ftpOperations->download($location, $this->pollEvery, $removeAfter);
+    if ($this->protocol === 'ftp')
+    {
+      return $this->ftpOperations->download($location, $this->pollEvery, $removeAfter);
+    }
+    else
+    {
+      return $this->httpOperations->download($location, $this->pollEvery, $removeAfter);
+    }
   }
   
   /**
