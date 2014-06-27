@@ -11,7 +11,6 @@ error_reporting(-1);
 
 require_once 'vendor/autoload.php';
 require_once 'Operations.php';
-require_once 'FtpOperations.php';
 
 // Define CLI options
 $argv = new Commando\Command();
@@ -48,8 +47,9 @@ $argv->setHelp("" .
 
 // Do not run any code while in help mode
 if (!empty($argv['p'])){
-  $operations = new Operations(new FtpOperations(new Ftp(FALSE)), $argv['u'], $argv['p'], 
-                               $argv['host'], $argv['port'], $argv['poll'], $argv['protocol']);
+  $toInit = ($argv['protocol'] === 'ftp' ? Operations::ftp() : Operations::http());
+  $operations = new Operations($toInit, $argv['u'], $argv['p'], $argv['port'], $argv['host'],
+                               $argv['poll'], $argv['protocol']);
   $operations->init();
 
   // Upload the file.
@@ -60,17 +60,17 @@ if (!empty($argv['p'])){
   echo($message);
 
   // Download when it is done.
-  list($err, $message) = $operations->download($argv['l'], $argv['remove']);
-  if (!$err){
-    throw new RuntimeException($message);
-  }
-  echo($message);
+  // list($err, $message) = $operations->download($argv['l'], $argv['remove']);
+  // if (!$err){
+  //   throw new RuntimeException($message);
+  // }
+  // echo($message);
 
-  if ($argv['remove'] === TRUE){
-    echo('Also, removed ' .$argv['f']. "'s result file from the server.\n");
-  }
+  // if ($argv['remove'] === TRUE){
+  //   echo('Also, removed ' .$argv['f']. "'s result file from the server.\n");
+  // }
 
-  // Always close the FTP connection properly once done with it.
-  $operations->quit();
+  // // Always close the FTP connection properly once done with it.
+  // $operations->quit();
 }
 ?>

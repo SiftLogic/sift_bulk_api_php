@@ -1,6 +1,7 @@
 {
   "require": {
-    "nategood/commando": "*",
+    "nategood/commando": "v0.2.6",
+    "nategood/httpful": "v0.2.13",
     "mikey179/vfsStream": "v1.2.0"
   }
 }

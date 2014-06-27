@@ -29,7 +29,7 @@ Make sure PHP \>= <b>5.0</b> is installed and a [composer.phar file](https://git
   </code>
 </pre>
 
-If you want to run the tests (<code>phpunit --strict OperationsTest</code>):
+If you want to run the tests (<code>phpunit --strict tests</code>):
 
 <pre>
   <code>
@@ -41,7 +41,9 @@ Files And Folders
 =================
 * **main.php:** Example CLI that uploads a file, polls for it to complete, then downloads it.
 * **Operations.php:** Class that controls server connections.
-* **OperationsTest.php:** 100% code coverage unit tests of operations.js. It is recommended that you update this if you want to customize operations.js.
+* **ftpOperations.js:** Object that provides an FTP interface to the server.
+* **httpOperations.js:** Object that provides an HTTP interface to the server.
+* **/tests:** 100% code coverage unit tests of API functionality. It is recommended that you update these if you want to customize operations.js.
 * **composer.json:** Standard [Composer](https://getcomposer.org/doc/01-basic-usage.md) specification file.
 * **vendor:** Standard location of composer packages.
 * **patched_pemftp:** FTP library. Only a few work, and there were a few customizations. See that README.

@@ -2,9 +2,8 @@
 require_once 'Operations.php';
 require_once 'FtpOperations.php';
 require_once 'patched_pemftp/ftp_class.php';
-require_once 'vendor/autoload.php';
 
-class OperationsTest extends PHPUnit_Framework_TestCase
+class FtpOperationsTest extends PHPUnit_Framework_TestCase
 {
   private $username;
   private $password;

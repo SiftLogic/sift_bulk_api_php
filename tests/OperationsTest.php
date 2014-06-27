@@ -22,7 +22,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->host = 'localhost';
     $this->port = 9871;
     $this->polling = 0.1;
-    $this->ftpOperations = new FtpOperations(new Ftp(FALSE));
+    $this->ftpOperations = Operations::ftp();
 
     $this->file = 'test.csv';
 
@@ -97,7 +97,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
          ->with($this->username, $this->password, $this->host, $this->port);
 
     $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
-                                       $this->port, $this->host);
+                                       $this->port, $this->host, 300, 'ftp');
 
     $this->assertEquals($this->operations->init(), TRUE);
   }
@@ -127,7 +127,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
          ->with('/tmp', 300, FALSE);
 
     $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
-                                       $this->port, $this->host, 300);
+                                       $this->port, $this->host, 300, 'ftp');
 
     $this->assertEquals($this->operations->download('/tmp', FALSE), TRUE);
   }
@@ -141,7 +141,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
          ->will($this->returnValue(TRUE));
 
     $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
-                                       $this->port, $this->host, 300);
+                                       $this->port, $this->host, 300, 'ftp');
 
     $this->assertEquals($this->operations->remove(), TRUE);
   }
@@ -155,7 +155,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
          ->will($this->returnValue(TRUE));
 
     $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
-                                       $this->port, $this->host, 300);
+                                       $this->port, $this->host, 300, 'ftp');
 
     $this->operations->quit();
   }

@@ -1,4 +1,7 @@
 <?php
+require_once 'FtpOperations.php';
+require_once 'HttpOperations.php';
+
 /**
  * Contains all the operations to upload, poll and download files. Unlike the Node.js scripts, this
  * operates synchronously.
@@ -11,14 +14,15 @@ class Operations
   private $port;
   
   public $protocol;
-  public $uploadFileName;// Set on upload
   public $pollEvery;
   public $ftpOperations;
+  public $httpOperations;
 
   /**
    * The constructor adds properties to the object which are used in init.
    *
-   * @param (ftpOperations) An instance of FtpOperations to use.
+   * @param (operations) An instance of a type of protocol operations to use. Needs to be sent in
+   *                     for testing purposes.
    * @param (username) The username to get into the ftp server.
    * @param (password) The password to get into the ftp server.
    * @param (host) The host to connect to. Defaults to localhost.
@@ -26,7 +30,7 @@ class Operations
    * @param (polling) Number of seconds to poll for. Defaults to 300 (5 minutes) if falsey.
    * @param (protocol) What protocol to use to transfer data. Defaults to http.
    */
-  public function __construct(FtpOperations $ftpOperations, $username, $password, $port,
+  public function __construct($operations, $username, $password, $port,
                               $host = 'localhost', $pollEvery = 300, $protocol = 'http') 
   {
     $this->username = $username;
@@ -46,7 +50,11 @@ class Operations
       $this->protocol = 'http';
     }
 
-    $this->ftpOperations = $ftpOperations;
+    if ($protocol === 'ftp'){
+      $this->ftpOperations = $operations;
+    } else {
+      $this->httpOperations = $operations;
+    }
   }
 
   /**
@@ -56,7 +64,14 @@ class Operations
    */
   public function init()
   {
-    return $this->ftpOperations->init($this->username, $this->password, $this->host, $this->port);
+    if ($this->protocol === 'ftp')
+    {
+      return $this->ftpOperations->init($this->username, $this->password, $this->host, $this->port);
+    }
+    else
+    {
+      return $this->httpOperations->init($this->password, $this->host, $this->port);
+    }
   }
 
   /**
@@ -69,7 +84,14 @@ class Operations
    */
   public function upload($file, $singleFile)
   {
-    return $this->ftpOperations->upload($file, $singleFile);
+    if ($this->protocol === 'ftp')
+    {
+      return $this->ftpOperations->upload($file, $singleFile);
+    }
+    else
+    {
+      return $this->httpOperations->upload($file, $singleFile);
+    }
   }
 
   /**
@@ -130,23 +152,21 @@ class Operations
   }
 
   /**
-   * Retrieves the upload file name and transforms it to the download one. 
+   * Creates an FtpOperations instance to be passed into this class
    *
-   * @return The current download name of the current upload.
+   * @return FtpOperationss instance to be passed into this class
    */
-  public function getDownloadFileName()
-  {
-    if (empty($this->uploadFileName)){
-      return $this->uploadFileName;
-    }
+  public static function ftp() {
+    return new FtpOperations(new Ftp(FALSE));
+  }
 
-    $formatted = preg_replace('/source_/', 'archive_', $this->uploadFileName, 1);
-
-    if (strpos($formatted, '.csv') || strpos($formatted, '.txt')){
-      $formatted = substr($formatted, 0, -4) .'.zip';
-    }
-
-    return $formatted;
+  /**
+   * Creates an HttpOperations instance to be passed into this class
+   *
+   * @return HttpOperations instance to be passed into this class
+   */
+  public static function http() {
+    return new HttpOperations();
   }
 }
 ?>
