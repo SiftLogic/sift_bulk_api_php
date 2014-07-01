@@ -46,13 +46,15 @@ class MockRequest extends \Httpful\Request
     return $this->sendReturn;
   }
 
-  public function defineSendReturn($status, $message, $statusUrl, $jobName = NULL)
+  public function defineSendReturn($status, $message, $statusUrl,
+                                   $jobName = NULL, $download_url = NULL)
   {
     $this->sendReturn = (object)array("body" => (object)array(
         "status" => $status,
         "msg" => $message,
         "status_url" => $statusUrl,
-        "job" => $jobName
+        "job" => $jobName,
+        "download_url" => $download_url
       )
     );
   }
@@ -98,6 +100,17 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     for ($index = 0; $index < count($values); $index += 1) {
       $this->assertEquals($args[$index], $values[$index]);
     }
+  }
+
+  private function stubX($toStub)
+  {
+    $operationsStub = $this->getMock(
+      'HttpOperations', 
+      $toStub,
+      [$this->password, 'localhost', 81]
+    );
+
+    return $operationsStub;
   }
 
   // init
@@ -165,13 +178,70 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
                         [FALSE, '<h1>A funky error message</h1>']);
   }
 
+  // handleServerDownloadError
+
+  public function testHandleServerDownloadErrorNoErrorApplicationType()
+  {
+    $operationsStub = $this->stubX(['native']);
+    $operationsStub->expects($this->once())
+                   ->method('native')
+                   ->with('curl_getinfo', ['handler', CURLINFO_CONTENT_TYPE])
+                   ->will($this->returnValue('application/xml'));
+
+    $this->assertEquals($this->httpOperations->handleServerDownloadError(
+      'handler',
+      'test.csv',
+      $operationsStub
+    ), [TRUE, '']);
+  }
+
+  public function testHandleServerDownloadErrorNoErrorBody()
+  {
+    $operationsStub = $this->stubX(['native']);
+    $operationsStub->expects($this->at(0))
+                   ->method('native')
+                   ->with('curl_getinfo', ['handler', CURLINFO_CONTENT_TYPE])
+                   ->will($this->returnValue('application/json'));
+
+    $operationsStub->expects($this->at(1))
+                   ->method('native')
+                   ->with('file_get_contents', ['test.csv'])
+                   ->will($this->returnValue('{"status": "success"}'));
+
+    $this->assertEquals($this->httpOperations->handleServerDownloadError(
+      'handler',
+      'test.csv',
+      $operationsStub
+    ), [TRUE, '']);
+  }
+
+  public function testHandleServerDownloadError()
+  {
+    $operationsStub = $this->stubX(['native']);
+    $operationsStub->expects($this->at(0))
+                   ->method('native')
+                   ->with('curl_getinfo', ['handler', CURLINFO_CONTENT_TYPE])
+                   ->will($this->returnValue('application/json'));
+
+    $operationsStub->expects($this->at(1))
+                   ->method('native')
+                   ->with('file_get_contents', ['test.csv'])
+                   ->will($this->returnValue('{"status": "error", "msg": "An Error"}'));
+
+    $this->assertEquals($this->httpOperations->handleServerDownloadError(
+      'handler',
+      'test.csv',
+      $operationsStub
+    ), [FALSE, 'An Error']);
+  }
+
   // watchUpload
 
   public function testWatchUploadComplete()
   {
     $request = MockRequest::get($this->httpOperations->statusUrl);
     $this->httpOperations->apikey = '12345';
-    $request->defineSendReturn('completed', NULL, NULL);
+    $request->defineSendReturn('completed', NULL, NULL, NULL, 'download/location');
 
     $this->assertEquals($this->httpOperations->watchUpload(300, $request), [TRUE, '']);
 
@@ -181,6 +251,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
       ['x-authorization', $this->httpOperations->apikey]
     ]);
     $this->assertEquals(count($request->sendCalls), 1);
+    $this->assertEquals($this->httpOperations->downloadUrl, 'download/location');
   }
 
   public function testWatchUploadNotComplete()
@@ -260,6 +331,94 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
 
     $result = $this->httpOperations->waitAndDownload(1000, 'test.csv', $stub);
     $this->assertEquals($result, [TRUE, 'test message']);
+  }
+
+  // download
+
+  public function testDownloadWatchUploadError()
+  {
+    $operationsStub = $this->stubX(['watchUpload']);
+    $operationsStub->expects($this->once())
+                   ->method('watchUpload')
+                   ->with(100)
+                   ->will($this->returnValue([FALSE, 'An Error']));
+
+    $this->assertEquals($this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
+                        [FALSE, 'An Error']);
+  }
+
+  public function testDownloadFileCreationError()
+  {
+    $operationsStub = $this->stubX(['watchUpload', 'native']);
+    $operationsStub->expects($this->once())
+                   ->method('watchUpload')
+                   ->with(100)
+                   ->will($this->returnValue([TRUE, '']));
+
+    $operationsStub->statusUrl = 'http://localhost:80/test_csv';
+
+    $operationsStub->expects($this->once())
+                   ->method('native')
+                   ->with('fopen', ['/tmp/test_csv.zip', 'w+'])
+                   ->will($this->returnValue(false));
+
+    // $this->httpOperations->download('/tmp', 100, FALSE, $operationsStub);
+    $this->assertEquals($this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
+                        [FALSE, "Could not open '/tmp/test_csv.zip' to download into."]);
+  }
+
+  public function testDownloadFileNormalCall()
+  {
+    $chHandler = 'ch_handler';
+    $filePointer = 'file_pointer';
+
+    $operationsStub = $this->stubX(['watchUpload', 'native', 'handleServerDownloadError']);
+    $operationsStub->expects($this->once())
+                   ->method('watchUpload')
+                   ->with(100)
+                   ->will($this->returnValue([TRUE, '']));
+
+    $operationsStub->statusUrl = 'http://localhost:80/test_csv';
+    $operationsStub->downloadUrl = 'http://localhost:80/test_csv/download';
+    $operationsStub->apikey = '12345';
+
+    // Note that at increments for every mocked function call, it is not call specific
+    $operationsStub->expects($this->at(1))
+                   ->method('native')
+                   ->with('fopen', ['/tmp/test_csv.zip', 'w+'])
+                   ->will($this->returnValue($filePointer));
+    $operationsStub->expects($this->at(2))
+                   ->method('native')
+                   ->with('curl_init', ['http://localhost:80/test_csv/download'])
+                   ->will($this->returnValue($chHandler));
+    $operationsStub->expects($this->at(3))
+                   ->method('native')
+                   ->with('curl_setopt', [$chHandler, CURLOPT_TIMEOUT, 100]);
+    $operationsStub->expects($this->at(4))
+                   ->method('native')
+                   ->with('curl_setopt', [$chHandler, CURLOPT_FILE, $filePointer]);
+    $operationsStub->expects($this->at(5))
+                   ->method('native')
+                   ->with('curl_setopt',[$chHandler,CURLOPT_HTTPHEADER,["x-authorization: 12345"]]);
+    $operationsStub->expects($this->at(6))
+                   ->method('native')
+                   ->with('curl_exec', [$chHandler]);
+
+    $operationsStub->expects($this->once())
+                   ->method('handleServerDownloadError')
+                   ->with($chHandler, '/tmp/test_csv.zip')
+                   ->will($this->returnValue([False, 'An Error']));
+
+    $operationsStub->expects($this->at(8))
+                   ->method('native')
+                   ->with('curl_close', [$chHandler]);
+    $operationsStub->expects($this->at(9))
+                   ->method('native')
+                   ->with('fclose', [$filePointer]);
+
+    // $this->httpOperations->download('/tmp', 100, FALSE, $operationsStub);
+    $this->assertEquals($this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
+                        [FALSE, 'An Error']);
   }
 }
 ?>

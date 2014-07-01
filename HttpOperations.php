@@ -8,6 +8,7 @@ class HttpOperations
 {
   public $baseUrl;
   public $statusUrl;
+  public $downloadUrl;
   public $apikey;
 
   /**
@@ -22,7 +23,7 @@ class HttpOperations
    */
   public function init($password, $host, $port = 80)
   {
-    if(empty($port))
+    if (empty($port))
     {
       $port = 80;
     }
@@ -82,40 +83,67 @@ class HttpOperations
    */
   public function download($location, $pollEvery, $removeAfter = FALSE, $self = '')
   {
-    return $this->watchUpload($pollEvery);
+    // So that watchUpload and handleServerDownloadError can be stubbed in the tests
+    if (empty($self)){
+      $self = $this;
+    }
 
-    // // So that waitAndDownload can be stubbed in the tests
-    // if(empty($self)){
-    //   $self = $this;
-    // }
+    list($err, $message) = $self->watchUpload($pollEvery);
+    if (!$err)
+    {
+      return [$err, $message];
+    }
 
-    // $listing = $self->ftp->nlist('/complete');
-    // if ($listing === FALSE){
-    //   return array(FALSE, "The /complete directory does not exist.\n");
-    // }
+    $tmp = explode("/", $self->statusUrl);
+    $newFile = end($tmp);
+    $fullLocation = "$location/$newFile.zip";
 
-    // $location = preg_replace('/\/$/', '', $location);// Remove trailing slash if present
+    $filePointer = $self->native('fopen', [$fullLocation, 'w+']);
+    if ($filePointer !== false)
+    {
+      $ch = $self->native('curl_init', [$self->downloadUrl]);
+      $self->native('curl_setopt', [$ch, CURLOPT_TIMEOUT, 100]);
+      $self->native('curl_setopt', [$ch, CURLOPT_FILE, $filePointer]);
+      $self->native('curl_setopt', [$ch, CURLOPT_HTTPHEADER, ["x-authorization: $self->apikey"]]);
+      $self->native('curl_exec', [$ch]);
 
-    // $formatted = $self->getDownloadFileName();
-    // if (array_search($formatted, $listing)){
-    //   if($self->ftp->get("/complete/$formatted", "$location/$formatted") === FALSE){
-    //     $message = $self->ftp->last_message();
-    //     return array(FALSE, "\nFile Download Error: $message\n");
-    //   };
+      $result = $self->handleServerDownloadError($ch, $fullLocation);
+      $self->native('curl_close', [$ch]);
+      $self->native('fclose', [$filePointer]);
+      return $result;
+    } 
+    else
+    {
+      return [FALSE, "Could not open '$fullLocation' to download into."];
+    }
+  }
 
-    //   $message = "Downloaded into $location/$formatted.\n";
-    //   if (!$removeAfter)
-    //   {
-    //     return array(TRUE, $message);
-    //   }
+ /**
+   * Checks if the downloaded file is actually an error message.
+   *
+   * @param (curlHandler) The curl handler to check header stuff, from curl_init().
+   * @param (filename) The full file name to check for errors with.
+   * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
+   *
+   * @return An array [<no error>, <message>].
+   */
+  public function handleServerDownloadError($curlHandler, $filename, $self = '') 
+  {
+    // So that wrapped native calls can be stubbed in the tests
+    if(empty($self)){
+      $self = $this;
+    }
 
-    //   $result = $this->remove();
-    //   $result[1] = $message .$result[1];
-
-    //   return $result;
-    // } else {
-    //   return $self->waitAndDownload($pollEvery, $formatted, $location, $removeAfter);
-    // }
+    if ($self->native('curl_getinfo', [$curlHandler, CURLINFO_CONTENT_TYPE]) === "application/json")
+    {
+      $contents = $self->native('file_get_contents', [$filename]);
+      $decoded = json_decode($contents);
+      if ($decoded->status === "error")
+      {
+        return [FALSE, $decoded->msg];
+      }
+    }
+    return [TRUE, ''];
   }
 
   /**
@@ -124,6 +152,7 @@ class HttpOperations
    * there is an error.
    *
    * @param {integer} pollEvery The number of milleseconds to poll for.
+   * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    * @return An array [<watchUpload succeeded>, <message>].
    */
   public function watchUpload($pollEvery, $request = NULL, $self = '') {
@@ -132,7 +161,7 @@ class HttpOperations
       $request = \Httpful\Request::get($this->statusUrl);
     }
     // So that waitAndDownload can be stubbed in the tests
-    if(empty($self)){
+    if (empty($self)){
       $self = $this;
     }
 
@@ -150,6 +179,7 @@ class HttpOperations
     } 
     else if ($response->body->status === 'completed')
     {
+      $this->downloadUrl = $response->body->download_url;
       return [TRUE, ''];
     }
     else
@@ -184,6 +214,14 @@ class HttpOperations
   {
     echo($message);
     sleep($time);
+  }
+
+  /**
+   * Wrapped native PHP function calls for easy testing. 
+   **/
+  public function native($name, $args)
+  {
+    return call_user_func_array($name, $args);
   }
 }
 ?>
