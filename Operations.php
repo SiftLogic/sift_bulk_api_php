@@ -95,15 +95,6 @@ class Operations
   }
 
   /**
-   * Changes to the upload directory then uploads the specified file.
-   *
-   * @param (file) The location of the file to upload.
-   * @param (singleFile) If the file is uploaded in single file mode.
-   *
-   * @return An array of the format [<upload succeeded>, <message>].
-   */
-
-  /**
    * @description
    * Downloads the last uploaded file (self.uploadFileName).
    *
@@ -130,17 +121,31 @@ class Operations
    */
   public function remove()
   {
-    return $this->ftpOperations->remove();
+    if ($this->protocol === 'ftp')
+    {
+      return $this->ftpOperations->remove();
+    }
+    else
+    {
+      return $this->httpOperations->remove();
+    }
   }
 
 
   /**
-   * Closes the FTP connection properly. This should always be called at the end of a program using
-   * this class.
+   * Closes the connection properly. This should always be called at the end of a program using this
+   * class for protocols that support it. Currently, that is just FTP.
    */
   public function quit()
   {
-    $this->ftpOperations->quit();
+    if ($this->protocol === 'ftp')
+    {
+      $this->ftpOperations->quit();
+    } 
+    else
+    {
+      throw new Exception("The $this->protocol protocol does not support quit.");
+    }
   }
 
   /**

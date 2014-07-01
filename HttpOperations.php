@@ -39,6 +39,7 @@ class HttpOperations
    *
    * @param (file) The location of the file to upload. Absolute path must be used.
    * @param (singleFile) If the file is uploaded in single file mode. Defaults to FALSE.
+   * @param (request) A mocked httpful post request. (For Testing)
    *
    * @return An array of the format [<upload succeeded>, <message>].
    */
@@ -51,12 +52,20 @@ class HttpOperations
     }
 
     $exportType = ($singleFile) ? "single" : "multi";
-    $response = $request->addHeader('Accept', 'application/json')
-                        ->addHeader('x-authorization', $this->apikey)
-                        ->sendTypes(\Httpful\Mime::FORM)
-                        ->body(["export_type" => $exportType])
-                        ->attach(['file' => ($file)])
-                        ->send();
+
+    try
+    {
+      $response = $request->addHeader('Accept', 'application/json')
+                          ->addHeader('x-authorization', $this->apikey)
+                          ->sendTypes(\Httpful\Mime::FORM)
+                          ->body(["export_type" => $exportType])
+                          ->attach(['file' => ($file)])
+                          ->send();
+    } 
+    catch(Exception $e)
+    {
+      return [FALSE, $e->getMessage()];
+    }
 
     if (empty($response->body->status) === TRUE)
     {
@@ -101,15 +110,35 @@ class HttpOperations
     $filePointer = $self->native('fopen', [$fullLocation, 'w+']);
     if ($filePointer !== false)
     {
-      $ch = $self->native('curl_init', [$self->downloadUrl]);
-      $self->native('curl_setopt', [$ch, CURLOPT_TIMEOUT, 100]);
-      $self->native('curl_setopt', [$ch, CURLOPT_FILE, $filePointer]);
-      $self->native('curl_setopt', [$ch, CURLOPT_HTTPHEADER, ["x-authorization: $self->apikey"]]);
-      $self->native('curl_exec', [$ch]);
+      try
+      {
+        $ch = $self->native('curl_init', [$self->downloadUrl]);
+        $self->native('curl_setopt', [$ch, CURLOPT_TIMEOUT, 100]);
+        $self->native('curl_setopt', [$ch, CURLOPT_FILE, $filePointer]);
+        $self->native('curl_setopt', [$ch, CURLOPT_HTTPHEADER, ["x-authorization: $self->apikey"]]);
+        $self->native('curl_exec', [$ch]);
 
-      $result = $self->handleServerDownloadError($ch, $fullLocation);
-      $self->native('curl_close', [$ch]);
-      $self->native('fclose', [$filePointer]);
+        $result = $self->handleServerDownloadError($ch, $fullLocation);
+        $self->native('curl_close', [$ch]);
+        $self->native('fclose', [$filePointer]);
+
+        if (!$result[0])
+        {
+          return $result;
+        }
+
+        if ($removeAfter !== FALSE)
+        {
+          return $self->remove();
+        }
+        return $result;
+
+      } 
+      catch(Exception $e)
+      {
+        return [FALSE, $e->getMessage()];
+      }
+
       return $result;
     } 
     else
@@ -151,7 +180,8 @@ class HttpOperations
    * Calls the callback once the last uploaded file (indicated by status url) has been loaded or 
    * there is an error.
    *
-   * @param {integer} pollEvery The number of milleseconds to poll for.
+   * @param (pollEvery) The number of milleseconds to poll for.
+   * @param (request) A mocked httpful post request. (For Testing)
    * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    * @return An array [<watchUpload succeeded>, <message>].
    */
@@ -165,9 +195,17 @@ class HttpOperations
       $self = $this;
     }
 
-    $response = $request->addHeader('Accept', 'application/json')
-                        ->addHeader('x-authorization', $this->apikey)
-                        ->send();
+    try
+    {
+      $response = $request->addHeader('Accept', 'application/json')
+                          ->addHeader('x-authorization', $this->apikey)
+                          ->send();
+    } 
+    catch(Exception $e)
+    {
+      return [FALSE, $e->getMessage()];
+    }
+    
 
     if (empty($response->body->status) === TRUE)
     {
@@ -217,7 +255,45 @@ class HttpOperations
   }
 
   /**
-   * Wrapped native PHP function calls for easy testing. 
+   * Removes the results file from the server.
+   * 
+   * @param (request) A mocked httpful post request. (For Testing)
+   *
+   * @return An array [<download succeeded>, <message>].
+   */
+  public function remove($request = NULL)
+  {
+    if ($request === NULL)
+    {
+      $request = \Httpful\Request::delete($this->statusUrl);
+    }
+
+    try
+    {
+      $response = $request->addHeader('Accept', 'application/json')
+                          ->addHeader('x-authorization', $this->apikey)
+                          ->send();
+    }
+    catch(Exception $e)
+    {
+      return [FALSE, $e->getMessage()];
+    }
+
+    if ($response->body->status === 'error')
+    {
+      return [FALSE, $response->body->msg];
+    }
+    return [TRUE, ''];
+  }
+
+  /**
+   * Calls the specified native function with the passed in arguments. Makes testing natives easy.
+   *
+   * @param (name) The name of the function to call.
+   * @param (args) An array of arguments to pass to the function.
+   * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
+   *
+   * @return The results of the native call
    **/
   public function native($name, $args)
   {

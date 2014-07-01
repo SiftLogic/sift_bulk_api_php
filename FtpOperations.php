@@ -182,7 +182,6 @@ class FtpOperations
     sleep($time);
   }
 
-  
   /**
    * Removes the results file from the server.
    *
@@ -196,7 +195,6 @@ class FtpOperations
     }
     return array(TRUE, "");
   }
-
 
   /**
    * Closes the FTP connection properly. This should always be called at the end of a program using

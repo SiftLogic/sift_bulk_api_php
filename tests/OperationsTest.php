@@ -192,6 +192,18 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->assertEquals($this->operations->remove(), TRUE);
   }
 
+  public function testRemoveCallsHttp() {
+    $this->httpOperations = $this->stubHttpOperationsCall();
+    $this->httpOperations->expects($this->once())
+         ->method('remove')
+         ->will($this->returnValue(TRUE));
+
+    $this->operations = new Operations($this->httpOperations, $this->username, $this->password,
+                                       $this->port, $this->host, 300, 'ftp');
+
+    $this->assertEquals($this->operations->remove(), TRUE);
+  }
+
   // quit
 
   public function testQuitCallsFtp() {
@@ -204,6 +216,20 @@ class OperationsTest extends PHPUnit_Framework_TestCase
                                        $this->port, $this->host, 300, 'ftp');
 
     $this->operations->quit();
+  }
+
+  public function testQuitCallsHttp() {
+    $this->operations = new Operations(Operations::http(), $this->username, $this->password,
+                                       $this->port, $this->host, 300, 'http');
+
+    try {
+      $this->operations->quit();
+      $this->fail('Calling quit with http should be raising an exception');
+    }
+    catch (Exception $e)
+    {
+      $this->assertEquals($e->getMessage(), "The http protocol does not support quit.");
+    }
   }
 }
 ?>

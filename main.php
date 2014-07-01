@@ -66,11 +66,14 @@ if (!empty($argv['p'])){
   }
   echo("done polling" .$message. "\n");
 
-  // if ($argv['remove'] === TRUE){
-  //   echo('Also, removed ' .$argv['f']. "'s result file from the server.\n");
-  // }
+  if ($argv['remove'] === TRUE){
+    echo('Also, removed ' .$argv['f']. "'s result file from the server.\n");
+  }
 
-  // // Always close the FTP connection properly once done with it.
-  // $operations->quit();
+  // Always close the FTP connection properly once done with it.
+  if ($argv['protocol'] === 'ftp')
+  {
+    $operations->quit();
+  }
 }
 ?>

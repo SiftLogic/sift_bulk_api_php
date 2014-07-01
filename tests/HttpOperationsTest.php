@@ -10,6 +10,7 @@ require_once 'HttpOperations.php';
 // These will need to be manually reset for each test that uses them.
 $postCalls = [];
 $getCalls = [];
+$deleteCalls = [];
 
 class MockRequest extends \Httpful\Request
 {
@@ -59,16 +60,49 @@ class MockRequest extends \Httpful\Request
     );
   }
 
+  public static function get($url, $payload = NULL, $mime = NULL)
+  {
+    array_push($GLOBALS['getCalls'], [$url]);
+    return new MockRequest();
+  }
+
   public static function post($url, $payload = NULL, $mime = NULL)
   {
     array_push($GLOBALS['postCalls'], [$url]);
     return new MockRequest();
   }
 
-    public static function get($url, $payload = NULL, $mime = NULL)
+  public static function delete($url, $payload = NULL, $mime = NULL)
   {
-    array_push($GLOBALS['getCalls'], [$url]);
+    array_push($GLOBALS['deleteCalls'], [$url]);
     return new MockRequest();
+  }
+}
+
+class MockRequestSendError extends MockRequest
+{
+  public function send() 
+  {
+    array_push($this->sendCalls, []);
+    throw new Exception('Send Error');
+  }
+
+  public static function get($url, $payload = NULL, $mime = NULL)
+  {
+    parent::get($url, $payload, $mime);
+    return new MockRequestSendError();
+  }
+
+  public static function post($url, $payload = NULL, $mime = NULL)
+  {
+    parent::post($url, $payload, $mime);
+    return new MockRequestSendError();
+  }
+
+  public static function delete($url, $payload = NULL, $mime = NULL)
+  {
+    parent::delete($url, $payload, $mime);
+    return new MockRequestSendError();
   }
 }
 
@@ -83,6 +117,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
   {
     $GLOBALS['postCalls'] = [];
     $GLOBALS['getCalls'] = [];
+    $GLOBALS['deleteCalls'] = [];
 
     $password = '54321';
 
@@ -164,7 +199,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $this->calledWith($request->bodyCalls, [['export_type' => "single"]]);
   }
 
-  public function testUploadError()
+  public function testUploadServerError()
   {
     $request = MockRequest::post($this->httpOperations->baseUrl);
     $request->defineSendReturn('error', 'Err', NULL);
@@ -176,6 +211,15 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
 
     $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), 
                         [FALSE, '<h1>A funky error message</h1>']);
+  }
+
+  public function testUploadHttpError()
+  {
+    $request = MockRequestSendError::post($this->httpOperations->baseUrl);
+    $request->defineSendReturn('error', 'Err', NULL);
+
+    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), 
+                        [FALSE, 'Send Error']);
   }
 
   // handleServerDownloadError
@@ -275,7 +319,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     );
   }
 
-  public function testWatchUploadError()
+  public function testWatchUploadServerError()
   {
     $request = MockRequest::get($this->httpOperations->statusUrl);
     $request->defineSendReturn('error', 'Err', NULL);
@@ -289,6 +333,14 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
       $this->httpOperations->watchUpload(100, $request),
       [FALSE, '<h1>A funky error message</h1>']
     );
+  }
+
+  public function testWatchUploadHttpError()
+  {
+    $request = MockRequestSendError::get($this->httpOperations->statusUrl);
+    $request->defineSendReturn('error', 'Err', NULL);
+
+    $this->assertEquals($this->httpOperations->watchUpload(100, $request), [FALSE, 'Send Error']);
   }
 
   // waitAndDownload
@@ -367,12 +419,12 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
                         [FALSE, "Could not open '/tmp/test_csv.zip' to download into."]);
   }
 
-  public function testDownloadFileNormalCall()
+  private function downloadFileNormalSetup()
   {
     $chHandler = 'ch_handler';
     $filePointer = 'file_pointer';
 
-    $operationsStub = $this->stubX(['watchUpload', 'native', 'handleServerDownloadError']);
+    $operationsStub = $this->stubX(['watchUpload', 'native', 'handleServerDownloadError','remove']);
     $operationsStub->expects($this->once())
                    ->method('watchUpload')
                    ->with(100)
@@ -404,11 +456,6 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
                    ->method('native')
                    ->with('curl_exec', [$chHandler]);
 
-    $operationsStub->expects($this->once())
-                   ->method('handleServerDownloadError')
-                   ->with($chHandler, '/tmp/test_csv.zip')
-                   ->will($this->returnValue([False, 'An Error']));
-
     $operationsStub->expects($this->at(8))
                    ->method('native')
                    ->with('curl_close', [$chHandler]);
@@ -416,9 +463,67 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
                    ->method('native')
                    ->with('fclose', [$filePointer]);
 
-    // $this->httpOperations->download('/tmp', 100, FALSE, $operationsStub);
+    return [$operationsStub, $chHandler];
+  }
+
+  public function testDownloadFileNormalCall()
+  {
+    list($operationsStub, $chHandler) = $this->downloadFileNormalSetup();
+    $operationsStub->expects($this->once())
+                   ->method('handleServerDownloadError')
+                   ->with($chHandler, '/tmp/test_csv.zip')
+                   ->will($this->returnValue([FALSE, 'An Error']));
+
     $this->assertEquals($this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
                         [FALSE, 'An Error']);
+  }
+
+  public function testDownloadFileNormalCallRemoveAfter()
+  {
+    list($operationsStub, $chHandler) = $this->downloadFileNormalSetup();
+
+    $operationsStub->expects($this->once())
+                   ->method('handleServerDownloadError')
+                   ->with($chHandler, '/tmp/test_csv.zip')
+                   ->will($this->returnValue([TRUE, '']));
+    $operationsStub->expects($this->once())
+                   ->method('remove')
+                   ->will($this->returnValue([FALSE, 'A Message']));
+
+    $this->assertEquals($this->httpOperations->download('/tmp', 100, TRUE, $operationsStub),
+                        [FALSE, 'A Message']);
+  }
+
+  // remove
+
+  public function testRemoveServerError()
+  {
+    $request = MockRequest::delete('http://localhost:80/');
+    $request->defineSendReturn('error', 'Err', NULL);
+
+    $this->assertEquals($this->httpOperations->remove($request), [FALSE, 'Err']);
+  }
+
+  public function testRemoveSuccess()
+  {
+    $request = MockRequest::delete('http://localhost:80/');
+    $request->defineSendReturn('success', NULL, NULL);
+
+    $this->assertEquals($this->httpOperations->remove($request), [TRUE, '']);
+
+    $this->calledWith($GLOBALS['deleteCalls'], [['http://localhost:80/']]);
+    $this->calledWith($request->addHeaderCalls, [
+      ['Accept', 'application/json'],
+      ['x-authorization', $this->httpOperations->apikey]
+    ]);
+  }
+
+  public function testRemoveHttpError()
+  {
+    $request = MockRequestSendError::delete('http://localhost:80/');
+    $request->defineSendReturn('error', 'Err', NULL);
+
+    $this->assertEquals($this->httpOperations->remove($request), [FALSE, 'Send Error']);
   }
 }
 ?>
