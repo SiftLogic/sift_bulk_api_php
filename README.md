@@ -9,7 +9,7 @@ This demonstrates how to connect to the ftp server with PHP. You will need to kn
 </pre>
 The CLI is described in more detail with <code>./main.php --help</code>
 
-It is recommended to require the Operations file and use the methods in there to customize your process. The methods are described in file. If you want to cut down on code, this file only requires the files in patched_pemftp.
+It is recommended to require the Operations file and use the methods in there to customize your process. The methods are described in file.
 
 Licensing
 =========
@@ -22,7 +22,7 @@ Please see README.md in folder patched_pemftp for 3rd party License details.
 
 Installation
 ============
-Make sure PHP \>= <b>5.0</b> is installed and a [composer.phar file](https://github.com/composer/composer#installation--usage), then: 
+Make sure PHP \>= <b>5.5</b> is installed (5.0 should work, but you may encounter issues) and a [composer.phar file](https://github.com/composer/composer#installation--usage), then: 
 <pre>
   <code>
     php composer.phar install
