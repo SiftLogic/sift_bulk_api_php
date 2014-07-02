@@ -39,11 +39,13 @@ class HttpOperations
    *
    * @param (file) The location of the file to upload. Absolute path must be used.
    * @param (singleFile) If the file is uploaded in single file mode. Defaults to FALSE.
+   * @param (notify) The full email address to notify once an upload completes. If  an empty value
+   *                 is sent no address will be contacted.
    * @param (request) A mocked httpful post request. (For Testing)
    *
    * @return An array of the format [<upload succeeded>, <message>].
    */
-  public function upload($file, $singleFile = FALSE, $request = NULL)
+  public function upload($file, $singleFile = FALSE, $notify = NULL, $request = NULL)
   {
     // For testing purposes
     if ($request === NULL)
@@ -58,7 +60,10 @@ class HttpOperations
       $response = $request->addHeader('Accept', 'application/json')
                           ->addHeader('x-authorization', $this->apikey)
                           ->sendTypes(\Httpful\Mime::FORM)
-                          ->body(["export_type" => $exportType])
+                          ->body([
+                              "export_type" => $exportType,
+                              "notify_email" => $notify    
+                          ])
                           ->attach(['file' => ($file)])
                           ->send();
     } 

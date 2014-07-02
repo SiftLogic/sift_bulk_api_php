@@ -13,6 +13,7 @@ class Operations
   private $host;
   private $port;
   
+  public $notify;
   public $protocol;
   public $pollEvery;
   public $ftpOperations;
@@ -29,9 +30,10 @@ class Operations
    * @param (port) The port to connect to. Defaults to 21.
    * @param (polling) Number of seconds to poll for. Defaults to 300 (5 minutes) if falsey.
    * @param (protocol) What protocol to use to transfer data. Defaults to http.
+   * @param (notify) The full email address to notify once an upload completes.
    */
   public function __construct($operations, $username, $password, $port,
-                              $host = 'localhost', $pollEvery = 300, $protocol = 'http') 
+                              $host='localhost', $pollEvery = 300, $protocol = 'http', $notify=null) 
   {
     $this->username = $username;
     $this->password = $password;
@@ -39,6 +41,7 @@ class Operations
     $this->port = $port;
     $this->pollEvery = $pollEvery;
     $this->protocol = $protocol;
+    $this->notify = $notify;
 
     if (empty($this->host)){
       $this->host = 'localhost';
@@ -48,6 +51,9 @@ class Operations
     }
     if (empty($this->protocol)){
       $this->protocol = 'http';
+    }
+    if (empty($this->notify)){
+      $this->notify = null;
     }
 
     if ($protocol === 'ftp'){
@@ -90,7 +96,7 @@ class Operations
     }
     else
     {
-      return $this->httpOperations->upload($file, $singleFile);
+      return $this->httpOperations->upload($file, $singleFile, $this->notify);
     }
   }
 

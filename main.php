@@ -43,13 +43,15 @@ $argv->setHelp("" .
     ->describedAs('Remove the corresponding results file of the uploaded file (defaults to false)')
     ->boolean()
 ->option('protocol')
-    ->describedAs('Which type of protocol to use (defaults to http)');
+    ->describedAs('Which type of protocol to use (defaults to http)')
+->option('notify')
+    ->describedAs('The full email address to notify (defaults to sending to no address)');
 
 // Do not run any code while in help mode
 if (!empty($argv['p'])){
   $toInit = ($argv['protocol'] === 'ftp' ? Operations::ftp() : Operations::http());
   $operations = new Operations($toInit, $argv['u'], $argv['p'], $argv['port'], $argv['host'],
-                               $argv['poll'], $argv['protocol']);
+                               $argv['poll'], $argv['protocol'], $argv['notify']);
   $operations->init();
 
   // Upload the file.

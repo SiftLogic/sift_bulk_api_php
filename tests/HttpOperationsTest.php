@@ -173,7 +173,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $request->defineSendReturn('success', NULL, "http://localhost:80");
 
     $msg = "test.csv was uploaded.\n";
-    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), [TRUE, $msg]);
+    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, NULL, $request), [TRUE, $msg]);
 
     $this->calledWith($GLOBALS['postCalls'], [[$this->httpOperations->baseUrl]]);
     $this->calledWith($request->addHeaderCalls, [
@@ -181,7 +181,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
       ['x-authorization', $this->httpOperations->apikey],
       ['Send-Types', 'application/x-www-form-urlencoded'],
     ]);
-    $this->calledWith($request->bodyCalls, [['export_type' => "multi"]]);
+    $this->calledWith($request->bodyCalls, [['export_type' => 'multi', 'notify_email' => null]]);
     $this->calledWith($request->attachCalls, [['file' => 'test.csv']]);
     $this->assertEquals(count($request->sendCalls), 1);
 
@@ -194,9 +194,20 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $request->defineSendReturn('success', NULL, NULL);
 
     $msg = "test.csv was uploaded.\n";
-    $this->assertEquals($this->httpOperations->upload('test.csv', TRUE, $request), [TRUE, $msg]);
+    $this->assertEquals($this->httpOperations->upload('test.csv', TRUE,NULL,$request),[TRUE, $msg]);
 
-    $this->calledWith($request->bodyCalls, [['export_type' => "single"]]);
+    $this->calledWith($request->bodyCalls, [['export_type' => 'single', 'notify_email' => null]]);
+  }
+
+  public function testUploadSuccessNotifyEmail()
+  {
+    $request = MockRequest::post($this->httpOperations->baseUrl);
+    $request->defineSendReturn('success', NULL, NULL);
+
+    $msg = "test.csv was uploaded.\n";
+    $this->assertEquals($this->httpOperations->upload('test.csv',False,NULL,$request),[TRUE, $msg]);
+
+    $this->calledWith($request->bodyCalls, [['export_type' => 'multi', 'notify_email' => null]]);
   }
 
   public function testUploadServerError()
@@ -204,12 +215,13 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $request = MockRequest::post($this->httpOperations->baseUrl);
     $request->defineSendReturn('error', 'Err', NULL);
 
-    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), [FALSE, 'Err']);
+    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, NULL, $request),
+                                                      [FALSE, 'Err']);
 
     // No parsable response body
     $request->sendReturn = (object)array('body' => '<h1>A funky error message</h1>');
 
-    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), 
+    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, NULL, $request), 
                         [FALSE, '<h1>A funky error message</h1>']);
   }
 
@@ -218,7 +230,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $request = MockRequestSendError::post($this->httpOperations->baseUrl);
     $request->defineSendReturn('error', 'Err', NULL);
 
-    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, $request), 
+    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, NULL, $request), 
                         [FALSE, 'Send Error']);
   }
 

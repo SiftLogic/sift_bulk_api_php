@@ -12,6 +12,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
   private $port;
   private $ftpOperations;
 
+  private $notify;
   private $root;
   private $file;
 
@@ -23,11 +24,12 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->port = 9871;
     $this->polling = 0.1;
     $this->ftpOperations = Operations::ftp();
+    $this->notify = 'test@test.com';
 
     $this->file = 'test.csv';
 
     $this->operations = new Operations($this->ftpOperations, $this->username, $this->password,
-                                       $this->port, $this->host, $this->polling, 'ftp');
+                                       $this->port, $this->host,$this->polling,'ftp',$this->notify);
 
     $dir = array();
     $dir[$this->file] = '';
@@ -71,6 +73,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->assertEquals($details['host'], $this->host);
     $this->assertEquals($details['port'], $this->port);
 
+    $this->assertEquals($this->operations->notify, $this->notify);
     $this->assertEquals($this->operations->protocol, 'ftp');
     $this->assertEquals($this->operations->ftpOperations, $this->ftpOperations);
     $this->assertEquals($this->operations->pollEvery, $this->polling);
@@ -81,13 +84,15 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $details = $operations->getConnectionDetails();
 
     $this->assertEquals($details['host'], 'localhost');
+    $this->assertEquals($operations->notify, null);
     $this->assertEquals($operations->protocol, 'http');
     $this->assertEquals($operations->pollEvery, 300);
 
     $operations = new Operations($this->ftpOperations,$this->username, $this->password, $this->port,
-                                 '', '');
+                                 '', '', '');
     $details = $operations->getConnectionDetails();
 
+    $this->assertEquals($operations->notify, null);
     $this->assertEquals($operations->protocol, 'http');
     $this->assertEquals($details['host'], 'localhost');
     $this->assertEquals($details['port'], 9871);
@@ -147,7 +152,7 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->operations = new Operations($this->httpOperations, $this->username, $this->password,
                                        $this->port, $this->host);
 
-    $this->assertEquals($this->operations->upload('test.csv', FALSE), TRUE);
+    $this->assertEquals($this->operations->upload('test.csv', FALSE, $this->notify), TRUE);
   }
 
   // download
