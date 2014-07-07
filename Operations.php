@@ -101,7 +101,6 @@ class Operations
   }
 
   /**
-   * @description
    * Downloads the last uploaded file (self.uploadFileName).
    *
    * @param (location) The location to download the file to.
@@ -172,7 +171,7 @@ class Operations
   /**
    * Creates an FtpOperations instance to be passed into this class
    *
-   * @return FtpOperationss instance to be passed into this class
+   * @return FtpOperations instance to be passed into this class
    */
   public static function ftp() {
     return new FtpOperations(new Ftp(FALSE));

@@ -17,7 +17,11 @@ class HttpOperations
   public function __construct() {}
 
   /**
-   * Setups up the baseUrl and apikey
+   * Setups up the baseUrl and apikey.
+   *
+   * @param (password) The password to get into the ftp server.
+   * @param (host) The host to connect to.
+   * @param (port) The port to connect to. Defaults to 21.
    *
    * @return TRUE if operations could be initialized.
    */
@@ -210,7 +214,6 @@ class HttpOperations
     {
       return [FALSE, $e->getMessage()];
     }
-    
 
     if (empty($response->body->status) === TRUE)
     {
@@ -296,7 +299,6 @@ class HttpOperations
    *
    * @param (name) The name of the function to call.
    * @param (args) An array of arguments to pass to the function.
-   * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    *
    * @return The results of the native call
    **/

@@ -8,6 +8,7 @@ require_once 'patched_pemftp/ftp_class.php';
 class FtpOperations
 {
   public $ftp;
+  public $uploadFileName;
 
   /**
    * Just stores the ftp object this structure is needed due to testing issues.
@@ -19,6 +20,10 @@ class FtpOperations
 
   /**
    * Initializes the ftp object and logs in. Then goes to passive mode.
+   *
+   * @param (username) The username to get into the ftp server.
+   * @param (password) The password to get into the ftp server.
+   * @param (host) The host to connect to.
    *
    * @return TRUE if operations could be initialized.
    */
@@ -102,6 +107,7 @@ class FtpOperations
    * Polls every pollEvery seconds until the last uploaded file can be downloaded. Then downloads.
    *
    * @param (location) The location to download the file to.
+   * @param (pollEvery) Time in milleseconds to wait between each poll.
    * @param (removeAfter) If the results file should be removed after downloading.
    * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    *
