@@ -43,7 +43,7 @@ Files And Folders
 * **Operations.php:** Class that controls server connections.
 * **ftpOperations.js:** Object that provides an FTP interface to the server.
 * **httpOperations.js:** Object that provides an HTTP interface to the server.
-* **/tests:** 100% code coverage unit tests of API functionality. It is recommended that you update these if you want to customize operations.js.
+* **/tests:** Unit tests of API functionality. It is recommended that you update these if you want to customize operations.js.
 * **composer.json:** Standard [Composer](https://getcomposer.org/doc/01-basic-usage.md) specification file.
 * **vendor:** Standard location of composer packages.
 * **patched_pemftp:** FTP library. Only a few work, and there were a few customizations. See that README.
