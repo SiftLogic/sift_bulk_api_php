@@ -1,10 +1,10 @@
 PHP Bulk API
 ============
 
-This demonstrates how to connect to the bulk server with PHP. Unlike FTP, HTTP requires no username just the password (auth token). The apikey and password/auth token are found in the UI: API Keys -\> Manage -\> Actions -\> Access Details. Once you have that you can try the main.php file for an upload demo. For example:
+This demonstrates how to connect to the bulk server with PHP. Unlike FTP, HTTP requires no username just the password (auth token). The apikey and password/auth token are found in the UI: API Keys -\> Manage -\> Actions -\> Access Details. Once you have that you can try the main.php file for an upload demo. For example, using HTTP:
 <pre>
   <code>
-    ./main.php -f test.csv -l /tmp --u aUsername -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10
+    ./main.php -f test.csv -l /tmp -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10
   </code>
 </pre>
 The CLI is described in more detail with <code>./main.php --help</code>

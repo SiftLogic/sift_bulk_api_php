@@ -160,7 +160,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
   {
     $this->assertEquals($this->httpOperations->init($this->password, 'localhost'), TRUE);
 
-    $this->assertEquals($this->httpOperations->baseUrl, "http://localhost:80/api/live/bulk/");
+    $this->assertEquals($this->httpOperations->baseUrl, "http://localhost:8080/api/live/bulk/");
     $this->assertEquals($this->httpOperations->apikey, $this->password);
   }
 

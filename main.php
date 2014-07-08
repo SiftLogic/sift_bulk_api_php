@@ -15,9 +15,9 @@ require_once 'Operations.php';
 // Define CLI options
 $argv = new Commando\Command();
 $argv->setHelp("" .
-  "Usage: ./main.php -f [file name] -l [download location] -u [username] -p [password]\n" .
-  "Example: ./main.php -f ../test.csv -l /tmp -u TestKey -p e261742d-fe2f-4569-95e6-312689d049 --poll 10\n" .
-  "         Upload test.csv, process it and download the results to /tmp, poll every 10s"
+  "Usage: ./main.php -f [file name] -l [download location] -p [password]\n" .
+  "Example: ./main.php -f test.csv -l /tmp -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10\n" .
+  "         Upload test.csv using HTTP, process it and download the results to /tmp, poll every 10s"
   ) 
 ->option('f')
     ->require()
@@ -35,7 +35,7 @@ $argv->setHelp("" .
 ->option('host')
     ->describedAs('The host to connect to (default localhost)')
 ->option('port')
-    ->describedAs('The port to connect to (default 21)')
+    ->describedAs('The port to connect to (default 21 ftp and 8080 http)')
 ->option('singleFile')
     ->describedAs('Whether to run in single file mode (default false)')
     ->boolean()

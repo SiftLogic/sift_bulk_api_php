@@ -21,15 +21,15 @@ class HttpOperations
    *
    * @param (password) The password to get into the ftp server.
    * @param (host) The host to connect to.
-   * @param (port) The port to connect to. Defaults to 21.
+   * @param (port) The port to connect to. Defaults to 8080.
    *
    * @return TRUE if operations could be initialized.
    */
-  public function init($password, $host, $port = 80)
+  public function init($password, $host, $port = 8080)
   {
     if (empty($port))
     {
-      $port = 80;
+      $port = 8080;
     }
 
     $this->baseUrl = "http://$host:$port/api/live/bulk/";
