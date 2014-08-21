@@ -8,6 +8,7 @@ class HttpOperations
 {
   public $baseUrl;
   public $statusUrl;
+  public $statusUrls;
   public $downloadUrl;
   public $apikey;
 
@@ -34,6 +35,7 @@ class HttpOperations
 
     $this->baseUrl = "http://$host:$port/api/live/bulk/";
     $this->apikey = $password;
+    $this->statusUrls = [];
 
     return TRUE;
   }
@@ -57,6 +59,7 @@ class HttpOperations
       $request = \Httpful\Request::post($this->baseUrl);
     }
 
+    $successMessage = "$file was uploaded.\n";
     $exportType = ($singleFile) ? "single" : "multi";
 
     try
@@ -85,34 +88,88 @@ class HttpOperations
       return [FALSE, $response->body->msg];
     }
 
-    $this->statusUrl = $response->body->status_url;
-    return [TRUE, "$file was uploaded.\n"];
+    if (empty($response->body->status_url) !== TRUE)
+    {
+      $this->statusUrls = [$response->body->status_url];
+    } else {
+      if (count($response->body->jobs) > 1)
+      {
+        $successMessage = $response->body->jobs[0]->msg ."\n". $successMessage;
+      }
+
+      for ($i = 0; $i < count($response->body->jobs); $i += 1) {
+        $this->statusUrls[] = $response->body->jobs[$i]->status_url;
+      }
+    }
+
+    return [TRUE, $successMessage];
   }
 
- /**
-   * Polls every pollEvery seconds until the last uploaded file can be downloaded. Then downloads.
+  /**
+   * Polls every pollEvery seconds until the last uploaded file's results file(s) can be downloaded.
+   * Any errors will cause the download process for all files to be halted.
    *
-   * @param (location) The location to download the file to.
+   * @param (location) The location to download the file(s) to.
    * @param (pollEvery) The time in seconds to sleep for.
    * @param (removeAfter) If the results file should be removed after downloading.
    * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    *
-   * @return An array [<download succeeded>, <message>].
+   * @return An array [<download succeeded>, <messages seperated by \n>].
    */
   public function download($location, $pollEvery, $removeAfter = FALSE, $self = '')
   {
-    // So that watchUpload and handleServerDownloadError can be stubbed in the tests
-    if (empty($self)){
+    if (empty($self))
+    {
       $self = $this;
     }
 
-    list($err, $message) = $self->watchUpload($pollEvery);
+    $messages = [];
+
+    for ($i = 0; $i < count($self->statusUrls); $i += 1) {
+      $result = $self->downloadFile(
+        $location,
+        $pollEvery,
+        $self->statusUrls[$i],
+        $removeAfter,
+        $self
+      );
+      if (!$result[0])
+      {
+        return [FALSE, $result[1]];
+      }
+
+      $messages[] = $result[1];
+    }
+
+    return [TRUE, "\n". implode("\n", $messages)];
+  }
+
+ /**
+  * Polls every pollEvery seconds until the file at the status url can be downloaded.
+  *
+  * @param (location) The location to download the file(s) to.
+  * @param (pollEvery) The time in seconds to sleep for.
+  * @param (statusUrl) the location to poll for the file.
+  * @param (removeAfter) If the results file should be removed after downloading.
+  * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
+  *
+  * @return An array [<download succeeded>, <message>].
+  */
+  public function downloadFile($location, $pollEvery, $statusUrl, $removeAfter = FALSE, $self = '')
+  {
+    // So that watchUpload and handleServerDownloadError can be stubbed in the tests
+    if (empty($self))
+    {
+      $self = $this;
+    }
+
+    list($err, $message) = $self->watchUpload($pollEvery, $statusUrl);
     if (!$err)
     {
       return [$err, $message];
     }
 
-    $tmp = explode("/", $self->statusUrl);
+    $tmp = explode("/", $statusUrl);
     $newFile = end($tmp);
     $fullLocation = "$location/$newFile.zip";
 
@@ -138,9 +195,14 @@ class HttpOperations
 
         if ($removeAfter !== FALSE)
         {
-          return $self->remove();
+          $result = $self->remove($statusUrl);
+          if (empty($result[1]))
+          {
+            $result[1] = $message;
+          }
+          return $result;
         }
-        return $result;
+        return [TRUE, $message];
 
       } 
       catch(Exception $e)
@@ -157,18 +219,19 @@ class HttpOperations
   }
 
  /**
-   * Checks if the downloaded file is actually an error message.
-   *
-   * @param (curlHandler) The curl handler to check header stuff, from curl_init().
-   * @param (filename) The full file name to check for errors with.
-   * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
-   *
-   * @return An array [<no error>, <message>].
-   */
+  * Checks if the downloaded file is actually an error message.
+  *
+  * @param (curlHandler) The curl handler to check header stuff, from curl_init().
+  * @param (filename) The full file name to check for errors with.
+  * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
+  *
+  * @return An array [<no error>, <message>].
+  */
   public function handleServerDownloadError($curlHandler, $filename, $self = '') 
   {
     // So that wrapped native calls can be stubbed in the tests
-    if(empty($self)){
+    if(empty($self))
+    {
       $self = $this;
     }
 
@@ -190,14 +253,15 @@ class HttpOperations
    * there is an error.
    *
    * @param (pollEvery) The number of milleseconds to poll for.
+   * @param (statusUrl) the location to poll for the file.
    * @param (request) A mocked httpful post request. (For Testing)
    * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    * @return An array [<watchUpload succeeded>, <message>].
    */
-  public function watchUpload($pollEvery, $request = NULL, $self = '') {
+  public function watchUpload($pollEvery, $statusUrl, $request = NULL, $self = '') {
     if ($request === NULL)
     {
-      $request = \Httpful\Request::get($this->statusUrl);
+      $request = \Httpful\Request::get($statusUrl);
     }
     // So that waitAndDownload can be stubbed in the tests
     if (empty($self)){
@@ -226,11 +290,11 @@ class HttpOperations
     else if ($response->body->status === 'completed')
     {
       $this->downloadUrl = $response->body->download_url;
-      return [TRUE, ''];
+      return [TRUE, $response->body->job ." downloaded."];
     }
     else
     {
-      return $self->waitAndDownload($pollEvery, $response->body->job);
+      return $self->waitAndDownload($pollEvery, $response->body->job, $statusUrl);
     }
   }
 
@@ -239,20 +303,22 @@ class HttpOperations
    *
    * @param (time) The time in seconds to sleep for.
    * @param (file) The filename to download. Just need the filename, no path.
+   * @param (statusUrl) the location to poll for the file.
    * @param (self) A new version of this class to use. Defaults to $this. (For testing purposes)
    *
    * @return Result of running downloads again.
    */
-  public function waitAndDownload($time, $file, $self = '')
+  public function waitAndDownload($time, $file, $statusUrl, $self = '')
   {
     // So that echoAndSleep can be stubbed in the tests
-    if(empty($self)){
+    if(empty($self))
+    {
       $self = $this;
     }
 
     $self->echoAndSleep("Waiting for results file $file ...\n", $time);
 
-    return $self->watchUpload($time);
+    return $self->watchUpload($time, $statusUrl);
   }
 
   // (so echo and sleep can be stubbed)
@@ -265,15 +331,16 @@ class HttpOperations
   /**
    * Removes the results file from the server.
    * 
+   * @param (statusUrl) the location of the file to delete.
    * @param (request) A mocked httpful post request. (For Testing)
    *
    * @return An array [<download succeeded>, <message>].
    */
-  public function remove($request = NULL)
+  public function remove($statusUrl, $request = NULL)
   {
     if ($request === NULL)
     {
-      $request = \Httpful\Request::delete($this->statusUrl);
+      $request = \Httpful\Request::delete($statusUrl);
     }
 
     try

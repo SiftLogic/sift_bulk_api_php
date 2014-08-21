@@ -201,10 +201,11 @@ class OperationsTest extends PHPUnit_Framework_TestCase
     $this->httpOperations = $this->stubHttpOperationsCall();
     $this->httpOperations->expects($this->once())
          ->method('remove')
+         ->with(NULL)
          ->will($this->returnValue(TRUE));
 
     $this->operations = new Operations($this->httpOperations, $this->username, $this->password,
-                                       $this->port, $this->host, 300, 'ftp');
+                                       $this->port, $this->host, 300, 'http');
 
     $this->assertEquals($this->operations->remove(), TRUE);
   }

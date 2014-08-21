@@ -60,6 +60,16 @@ class MockRequest extends \Httpful\Request
     );
   }
 
+  public function defineSendReturnSplitFile($status, $message, $jobs)
+  {
+    $this->sendReturn = (object)array("body" => (object)array(
+        "status" => $status,
+        "msg" => $message,
+        "jobs" => $jobs
+      )
+    );
+  }
+
   public static function get($url, $payload = NULL, $mime = NULL)
   {
     array_push($GLOBALS['getCalls'], [$url]);
@@ -110,6 +120,8 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
 {
   private $httpOperations;
   private $baseUrl;
+  private $statusUrl;
+  private $statusUrls;
 
   private $password;
 
@@ -125,6 +137,11 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
 
     $this->httpOperations->init($this->password, 'localhost', 81);
     $this->baseUrl = $this->httpOperations->baseUrl;
+    $this->statusUrl = 'http://localhost:80/test_csv';
+    $this->statusUrls = [
+      $this->statusUrl,
+      $this->statusUrl. '2'
+    ];
   }
 
   // To be used with MockRequest
@@ -164,13 +181,52 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $this->assertEquals($this->httpOperations->apikey, $this->password);
   }
 
+  public function testInitSetStatusUrls() 
+  {
+    $this->assertEquals($this->httpOperations->init($this->password, 'localhost'), TRUE);
+
+    $this->assertEquals($this->httpOperations->statusUrls, []);
+  }
+
   // upload
 
-  public function testUploadSuccess()
+  public function testUploadSuccessWithSplit()
+  {
+    $jobs = [
+      (object)array(
+        "msg" => 'test.csv was automatically split',
+        "status_url" => $this->statusUrls[0]
+      ),
+      (object)array(
+        "msg" => 'test.csv was automatically split',
+        "status_url" => $this->statusUrls[1]
+      )
+    ];
+
+    $request = MockRequest::post($this->httpOperations->baseUrl);
+    $this->httpOperations->apikey = '12345';
+    $request->defineSendReturnSplitFile('success', NULL, $jobs);
+
+    $msg = "test.csv was automatically split\ntest.csv was uploaded.\n";
+    $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, NULL, $request), [TRUE, $msg]);
+
+    $this->calledWith($GLOBALS['postCalls'], [[$this->httpOperations->baseUrl]]);
+    $this->calledWith($request->addHeaderCalls, [
+      ['Accept', 'application/json'],
+      ['x-authorization', $this->httpOperations->apikey],
+      ['Send-Types', 'application/x-www-form-urlencoded'],
+    ]);
+    $this->calledWith($request->bodyCalls, [['export_type' => 'multi', 'notify_email' => null]]);
+    $this->calledWith($request->attachCalls, [['file' => 'test.csv']]);
+
+    $this->assertEquals($this->httpOperations->statusUrls, $this->statusUrls);
+  }
+
+  public function testUploadSuccessNoSplit()
   {
     $request = MockRequest::post($this->httpOperations->baseUrl);
     $this->httpOperations->apikey = '12345';
-    $request->defineSendReturn('success', NULL, "http://localhost:80");
+    $request->defineSendReturn('success', NULL, $this->statusUrl);
 
     $msg = "test.csv was uploaded.\n";
     $this->assertEquals($this->httpOperations->upload('test.csv', FALSE, NULL, $request), [TRUE, $msg]);
@@ -185,13 +241,13 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $this->calledWith($request->attachCalls, [['file' => 'test.csv']]);
     $this->assertEquals(count($request->sendCalls), 1);
 
-    $this->assertEquals($this->httpOperations->statusUrl, "http://localhost:80");
+    $this->assertEquals($this->httpOperations->statusUrls, [$this->statusUrl]);
   }
 
   public function testUploadSuccessSingleFile()
   {
     $request = MockRequest::post($this->httpOperations->baseUrl);
-    $request->defineSendReturn('success', NULL, NULL);
+    $request->defineSendReturn('success', NULL, $this->statusUrl);
 
     $msg = "test.csv was uploaded.\n";
     $this->assertEquals($this->httpOperations->upload('test.csv', TRUE,NULL,$request),[TRUE, $msg]);
@@ -202,7 +258,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
   public function testUploadSuccessNotifyEmail()
   {
     $request = MockRequest::post($this->httpOperations->baseUrl);
-    $request->defineSendReturn('success', NULL, NULL);
+    $request->defineSendReturn('success', NULL, $this->statusUrl);
 
     $msg = "test.csv was uploaded.\n";
     $this->assertEquals($this->httpOperations->upload('test.csv',False,NULL,$request),[TRUE, $msg]);
@@ -295,13 +351,16 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
 
   public function testWatchUploadComplete()
   {
-    $request = MockRequest::get($this->httpOperations->statusUrl);
+    $request = MockRequest::get($this->statusUrl);
     $this->httpOperations->apikey = '12345';
-    $request->defineSendReturn('completed', NULL, NULL, NULL, 'download/location');
+    $request->defineSendReturn('completed', NULL, NULL, 'test_csv1', 'download/location');
 
-    $this->assertEquals($this->httpOperations->watchUpload(300, $request), [TRUE, '']);
+    $this->assertEquals(
+      $this->httpOperations->watchUpload(300, $this->statusUrl, $request),
+      [TRUE,  'test_csv1 downloaded.']
+    );
 
-    $this->calledWith($GLOBALS['getCalls'], [[$this->httpOperations->statusUrl]]);
+    $this->calledWith($GLOBALS['getCalls'], [[$this->statusUrl]]);
     $this->calledWith($request->addHeaderCalls, [
       ['Accept', 'application/json'],
       ['x-authorization', $this->httpOperations->apikey]
@@ -326,7 +385,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
                    ->will($this->returnValue([TRUE, 'test message2']));
 
     $this->assertEquals(
-      $this->httpOperations->watchUpload(100, $request, $operationsStub),
+      $this->httpOperations->watchUpload(100, $this->statusUrl, $request, $operationsStub),
       [TRUE, 'test message2']
     );
   }
@@ -336,13 +395,16 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $request = MockRequest::get($this->httpOperations->statusUrl);
     $request->defineSendReturn('error', 'Err', NULL);
 
-    $this->assertEquals($this->httpOperations->watchUpload(100, $request), [FALSE, 'Err']);
+    $this->assertEquals(
+      $this->httpOperations->watchUpload(100, $this->statusUrl, $request),
+      [FALSE, 'Err']
+    );
 
     //No parsable response body
     $request->sendReturn = (object)array('body' => '<h1>A funky error message</h1>');
 
     $this->assertEquals(
-      $this->httpOperations->watchUpload(100, $request),
+      $this->httpOperations->watchUpload(100, $this->statusUrl, $request),
       [FALSE, '<h1>A funky error message</h1>']
     );
   }
@@ -352,7 +414,10 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $request = MockRequestSendError::get($this->httpOperations->statusUrl);
     $request->defineSendReturn('error', 'Err', NULL);
 
-    $this->assertEquals($this->httpOperations->watchUpload(100, $request), [FALSE, 'Send Error']);
+    $this->assertEquals(
+      $this->httpOperations->watchUpload(100, $this->statusUrl, $request),
+      [FALSE, 'Send Error']
+    );
   }
 
   // waitAndDownload
@@ -382,7 +447,7 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
          ->method('echoAndSleep')
          ->with("Waiting for results file test.csv ...\n", 1000);
 
-    $this->httpOperations->waitAndDownload(1000, 'test.csv', $stub);
+    $this->httpOperations->waitAndDownload(1000, 'test.csv', $this->statusUrl, $stub);
   }
 
   public function testWaitAndDownloadReturnsDownload()
@@ -393,22 +458,24 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
          ->with(1000)
          ->will($this->returnValue([TRUE, 'test message']));
 
-    $result = $this->httpOperations->waitAndDownload(1000, 'test.csv', $stub);
+    $result = $this->httpOperations->waitAndDownload(1000, 'test.csv', $this->statusUrl, $stub);
     $this->assertEquals($result, [TRUE, 'test message']);
   }
 
-  // download
+  // downloadFile
 
-  public function testDownloadWatchUploadError()
+  public function testDownloadFileWatchUploadError()
   {
     $operationsStub = $this->stubX(['watchUpload']);
     $operationsStub->expects($this->once())
                    ->method('watchUpload')
-                   ->with(100)
+                   ->with(100,  $this->statusUrl)
                    ->will($this->returnValue([FALSE, 'An Error']));
 
-    $this->assertEquals($this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
-                        [FALSE, 'An Error']);
+    $this->assertEquals(
+      $this->httpOperations->downloadFile('/tmp', 100, $this->statusUrl, FALSE, $operationsStub),
+      [FALSE, 'An Error']
+    );
   }
 
   public function testDownloadFileCreationError()
@@ -416,19 +483,17 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $operationsStub = $this->stubX(['watchUpload', 'native']);
     $operationsStub->expects($this->once())
                    ->method('watchUpload')
-                   ->with(100)
                    ->will($this->returnValue([TRUE, '']));
-
-    $operationsStub->statusUrl = 'http://localhost:80/test_csv';
 
     $operationsStub->expects($this->once())
                    ->method('native')
                    ->with('fopen', ['/tmp/test_csv.zip', 'w+'])
-                   ->will($this->returnValue(false));
+                   ->will($this->returnValue(FALSE));
 
-    // $this->httpOperations->download('/tmp', 100, FALSE, $operationsStub);
-    $this->assertEquals($this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
-                        [FALSE, "Could not open '/tmp/test_csv.zip' to download into."]);
+    $this->assertEquals(
+      $this->httpOperations->downloadFile('/tmp', 100, $this->statusUrl, FALSE, $operationsStub),
+      [FALSE, "Could not open '/tmp/test_csv.zip' to download into."]
+    );
   }
 
   private function downloadFileNormalSetup()
@@ -440,9 +505,8 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $operationsStub->expects($this->once())
                    ->method('watchUpload')
                    ->with(100)
-                   ->will($this->returnValue([TRUE, '']));
+                   ->will($this->returnValue([TRUE, 'test_csv downloaded']));
 
-    $operationsStub->statusUrl = 'http://localhost:80/test_csv';
     $operationsStub->downloadUrl = 'http://localhost:80/test_csv/download';
     $operationsStub->apikey = '12345';
 
@@ -484,10 +548,12 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
     $operationsStub->expects($this->once())
                    ->method('handleServerDownloadError')
                    ->with($chHandler, '/tmp/test_csv.zip')
-                   ->will($this->returnValue([FALSE, 'An Error']));
+                   ->will($this->returnValue([TRUE, '']));
 
-    $this->assertEquals($this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
-                        [FALSE, 'An Error']);
+    $this->assertEquals(
+      $this->httpOperations->downloadFile('/tmp', 100, $this->statusUrl, FALSE, $operationsStub),
+      [TRUE, 'test_csv downloaded']
+    );
   }
 
   public function testDownloadFileNormalCallRemoveAfter()
@@ -500,30 +566,69 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
                    ->will($this->returnValue([TRUE, '']));
     $operationsStub->expects($this->once())
                    ->method('remove')
+                   ->with($this->statusUrl)
                    ->will($this->returnValue([FALSE, 'A Message']));
 
-    $this->assertEquals($this->httpOperations->download('/tmp', 100, TRUE, $operationsStub),
-                        [FALSE, 'A Message']);
+    $this->assertEquals(
+      $this->httpOperations->downloadFile('/tmp', 100, $this->statusUrl, TRUE, $operationsStub),
+      [FALSE, 'A Message']
+    );
+  }
+
+  // download
+
+  public function testDownloadReturnsErrorOnFirstError()
+  {
+    $operationsStub = $this->stubX(['downloadFile']);
+    $operationsStub->expects($this->once())
+                   ->method('downloadFile')
+                   ->with('/tmp', 100, $this->statusUrls[0], FALSE)
+                   ->will($this->returnValue([FALSE, 'An Error']));
+    $operationsStub->statusUrls = $this->statusUrls;
+
+    $this->assertEquals(
+      $this->httpOperations->download('/tmp', 100, FALSE, $operationsStub),
+      [FALSE, 'An Error']
+    );
+  }
+
+  public function testDownloadReturnsAllMessages()
+  {
+    $operationsStub = $this->stubX(['downloadFile']);
+    $operationsStub->expects($this->at(0))
+                   ->method('downloadFile')
+                   ->with('/tmp', 100, $this->statusUrls[0], TRUE)
+                   ->will($this->returnValue([TRUE, 'Message1']));
+    $operationsStub->expects($this->at(1))
+                   ->method('downloadFile')
+                   ->with('/tmp', 100, $this->statusUrls[1], TRUE)
+                   ->will($this->returnValue([TRUE, 'Message2']));
+    $operationsStub->statusUrls = $this->statusUrls;
+
+    $this->assertEquals(
+      $this->httpOperations->download('/tmp', 100, TRUE, $operationsStub),
+      [TRUE, "\nMessage1\nMessage2"]
+    );
   }
 
   // remove
 
   public function testRemoveServerError()
   {
-    $request = MockRequest::delete('http://localhost:80/');
+    $request = MockRequest::delete($this->statusUrl);
     $request->defineSendReturn('error', 'Err', NULL);
 
-    $this->assertEquals($this->httpOperations->remove($request), [FALSE, 'Err']);
+    $this->assertEquals($this->httpOperations->remove($this->statusUrl, $request), [FALSE, 'Err']);
   }
 
   public function testRemoveSuccess()
   {
-    $request = MockRequest::delete('http://localhost:80/');
+    $request = MockRequest::delete($this->statusUrl);
     $request->defineSendReturn('success', NULL, NULL);
 
-    $this->assertEquals($this->httpOperations->remove($request), [TRUE, '']);
+    $this->assertEquals($this->httpOperations->remove($this->statusUrl, $request), [TRUE, '']);
 
-    $this->calledWith($GLOBALS['deleteCalls'], [['http://localhost:80/']]);
+    $this->calledWith($GLOBALS['deleteCalls'], [[$this->statusUrl]]);
     $this->calledWith($request->addHeaderCalls, [
       ['Accept', 'application/json'],
       ['x-authorization', $this->httpOperations->apikey]
@@ -532,10 +637,13 @@ class HttpOperationsTest extends PHPUnit_Framework_TestCase
 
   public function testRemoveHttpError()
   {
-    $request = MockRequestSendError::delete('http://localhost:80/');
+    $request = MockRequestSendError::delete($this->statusUrl);
     $request->defineSendReturn('error', 'Err', NULL);
 
-    $this->assertEquals($this->httpOperations->remove($request), [FALSE, 'Send Error']);
+    $this->assertEquals(
+      $this->httpOperations->remove($this->statusUrl, $request),
+      [FALSE, 'Send Error']
+    );
   }
 }
 ?>

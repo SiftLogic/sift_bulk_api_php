@@ -101,9 +101,9 @@ class Operations
   }
 
   /**
-   * Downloads the last uploaded file (self.uploadFileName).
+   * Downloads the last uploaded file's (self.uploadFileName) result file(s).
    *
-   * @param (location) The location to download the file to.
+   * @param (location) The location to download the file(s) to.
    * @param (removeAfter) If the results file should be removed after downloading.
    * @return An array [<download succeeded>, <message>].
    */
@@ -122,9 +122,11 @@ class Operations
   /**
    * Removes the results file from the server.
    *
+   * @param (url) The location to remove the file from. Used in HTTP removes. Defaults to NULL.
+   *
    * @return An array [<download succeeded>, <message>].
    */
-  public function remove()
+  public function remove($url = NULL)
   {
     if ($this->protocol === 'ftp')
     {
@@ -132,7 +134,7 @@ class Operations
     }
     else
     {
-      return $this->httpOperations->remove();
+      return $this->httpOperations->remove($url);
     }
   }
 
